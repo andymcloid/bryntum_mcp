@@ -236,97 +236,80 @@ export function createMCPServer(queryService, vectorStore) {
 
 /**
  * Connect MCP server to Fastify via SSE transport
+ * Using start() and handlePostMessage() methods
  */
 export async function connectMCPTransport(fastify, mcpServer) {
-  // Session management for SSE transports
+  logger.info('Setting up MCP SSE transport');
+
+  // Session map to track transports
   const sessions = new Map();
 
-  // GET endpoint for SSE stream
+  // GET endpoint - establishes SSE connection
   fastify.get('/mcp', async (request, reply) => {
-    const sessionId = request.query.sessionId;
-
-    // SessionId is REQUIRED - client must generate it and use same ID for POST
-    if (!sessionId) {
-      logger.warn({ ip: request.ip }, 'GET request missing sessionId');
-      return reply.code(400).send({
-        error: 'sessionId required',
-        message: 'Please provide a sessionId in query string: GET /mcp?sessionId=<uuid>'
-      });
-    }
-
-    logger.info({ ip: request.ip, sessionId }, 'MCP SSE stream connected');
+    logger.info({ ip: request.ip, query: request.query }, 'MCP GET - establishing SSE connection');
 
     try {
-      // Set CORS headers explicitly for SSE
+      // Hijack the reply to prevent Fastify from sending response
+      reply.hijack();
+
+      // Set CORS headers directly on raw response BEFORE transport writes
       reply.raw.setHeader('Access-Control-Allow-Origin', '*');
       reply.raw.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
       reply.raw.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+      reply.raw.setHeader('Access-Control-Expose-Headers', '*');
 
-      // Check if session already exists (reconnection attempt)
-      if (sessions.has(sessionId)) {
-        logger.warn({ sessionId }, 'Session already exists - cleaning up old session');
-        sessions.delete(sessionId);
-      }
-
+      // Create transport with the endpoint for POST messages
       const transport = new SSEServerTransport('/mcp', reply.raw);
 
-      // Store transport in session map
-      sessions.set(sessionId, transport);
-      logger.info({ sessionId, totalSessions: sessions.size }, 'Transport session registered');
-
+      // Connect to MCP server (this calls start() automatically)
       await mcpServer.connect(transport);
 
-      // Handle disconnect - cleanup session
+      // Store session
+      sessions.set(transport.sessionId, transport);
+      logger.info({ sessionId: transport.sessionId, totalSessions: sessions.size }, 'SSE session established');
+
+      // Cleanup on disconnect
       request.raw.on('close', () => {
-        sessions.delete(sessionId);
-        logger.info({ sessionId, totalSessions: sessions.size }, 'MCP client disconnected');
+        sessions.delete(transport.sessionId);
+        logger.info({ sessionId: transport.sessionId }, 'SSE session closed');
       });
     } catch (error) {
-      logger.error({ error: error.message, stack: error.stack }, 'MCP SSE connection error');
+      logger.error({ error: error.message, stack: error.stack }, 'SSE connection error');
       throw error;
     }
   });
 
-  // POST endpoint for client messages
+  // POST endpoint - receives client messages
   fastify.post('/mcp', async (request, reply) => {
     const sessionId = request.query.sessionId;
-    logger.info({ ip: request.ip, sessionId, hasBody: !!request.body }, 'MCP POST message received');
+    logger.info({ ip: request.ip, sessionId }, 'MCP POST - client message');
 
     try {
-      // Set CORS headers
-      reply.header('Access-Control-Allow-Origin', '*');
-      reply.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-      reply.header('Access-Control-Allow-Headers', 'Content-Type');
-
       if (!sessionId) {
-        logger.warn('POST request missing sessionId');
+        reply.header('Access-Control-Allow-Origin', '*');
         return reply.code(400).send({ error: 'sessionId required' });
       }
 
-      let transport = sessions.get(sessionId);
-
-      // If session doesn't exist, it means this is a POST-first flow
-      // Create a "pending" transport that will be used when GET arrives
+      const transport = sessions.get(sessionId);
       if (!transport) {
-        logger.info({ sessionId }, 'POST before GET - storing message for deferred processing');
-
-        // For POST-first flow, we need to return an error and let the client establish GET first
-        // This follows the SSE protocol requirement: GET establishes stream, then POST sends messages
-        logger.warn({ sessionId, availableSessions: Array.from(sessions.keys()) }, 'Session not found - client must establish SSE connection via GET first');
-        return reply.code(400).send({
-          error: 'Session not established',
-          message: 'Please establish SSE connection via GET /mcp?sessionId=<id> before sending messages'
-        });
+        logger.warn({ sessionId, availableSessions: Array.from(sessions.keys()) }, 'Session not found');
+        reply.header('Access-Control-Allow-Origin', '*');
+        return reply.code(404).send({ error: 'Session not found' });
       }
 
-      // Forward the message to the transport's handlePostMessage method
-      // This method processes the JSON-RPC message and routes it to the MCP server
-      logger.info({ sessionId, body: request.body }, 'Routing message to transport');
+      // Hijack the reply to prevent Fastify from sending response
+      reply.hijack();
 
-      // The SDK's handlePostMessage expects raw Node HTTP req/res objects
-      await transport.handlePostMessage(request.raw, reply.raw);
+      // Set CORS headers directly on raw response BEFORE transport writes
+      reply.raw.setHeader('Access-Control-Allow-Origin', '*');
+      reply.raw.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      reply.raw.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+      reply.raw.setHeader('Access-Control-Expose-Headers', '*');
+
+      // Forward to transport's handlePostMessage
+      await transport.handlePostMessage(request.raw, reply.raw, request.body);
     } catch (error) {
-      logger.error({ error: error.message, stack: error.stack }, 'MCP POST handler error');
+      logger.error({ error: error.message, stack: error.stack }, 'POST handler error');
       return reply.code(500).send({ error: error.message });
     }
   });
