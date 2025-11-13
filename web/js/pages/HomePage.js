@@ -8,6 +8,10 @@ import { Component } from '../components/Component.js';
 
 export class HomePage extends Component {
     async render() {
+        // Get current server URL dynamically
+        const serverUrl = window.location.origin;
+        const mcpUrl = `${serverUrl}/mcp`;
+
         const html = `
             <div class="fade-in">
                 <div class="text-center mb-8">
@@ -53,30 +57,27 @@ export class HomePage extends Component {
                 </div>
 
                 <div style="background-color: var(--surface); border-radius: var(--radius); padding: 1.5rem;">
-                    <h2 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 1rem;">About</h2>
+                    <h2 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 1rem;">MCP Connection</h2>
                     <p style="color: var(--text-secondary); margin-bottom: 1rem;">
-                        This RAG (Retrieval-Augmented Generation) system indexes Bryntum documentation
-                        and makes it searchable through semantic similarity using OpenAI embeddings and Weaviate.
+                        Connect Claude Desktop to this RAG server using Model Context Protocol (MCP).
+                        Add the following configuration to your <code>claude_desktop_config.json</code>:
                     </p>
-                    <div class="grid" style="grid-template-columns: repeat(2, 1fr); gap: 1rem; font-size: 0.875rem;">
-                        <div>
-                            <h3 style="font-weight: 600; margin-bottom: 0.5rem;">Features</h3>
-                            <ul style="list-style: disc; list-style-position: inside; color: var(--text-secondary);">
-                                <li>Semantic search with AI</li>
-                                <li>Real-time document indexing</li>
-                                <li>Progress tracking</li>
-                                <li>RESTful API</li>
-                            </ul>
-                        </div>
-                        <div>
-                            <h3 style="font-weight: 600; margin-bottom: 0.5rem;">Technology</h3>
-                            <ul style="list-style: disc; list-style-position: inside; color: var(--text-secondary);">
-                                <li>OpenAI Embeddings</li>
-                                <li>Weaviate Vector Store</li>
-                                <li>Vanilla JavaScript</li>
-                                <li>Node.js Backend</li>
-                            </ul>
-                        </div>
+
+                    <div style="background-color: var(--background); border-radius: var(--radius); padding: 1rem; margin-bottom: 1rem; font-family: 'Courier New', monospace; font-size: 0.875rem; overflow-x: auto;">
+<pre style="margin: 0; color: var(--text);">{
+  "mcpServers": {
+    "bryntum-rag": {
+      "transport": "http",
+      "url": "${mcpUrl}"
+    }
+  }
+}</pre>
+                    </div>
+
+                    <div style="font-size: 0.875rem; color: var(--text-secondary);">
+                        <p style="margin-bottom: 0.5rem;"><strong>MCP Endpoint:</strong> <code>GET/POST ${mcpUrl}</code></p>
+                        <p style="margin-bottom: 0.5rem;"><strong>Authentication:</strong> None (open access)</p>
+                        <p><strong>Available Tools:</strong> search_docs, search_examples, get_doc, list_versions</p>
                     </div>
                 </div>
             </div>

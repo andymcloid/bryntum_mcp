@@ -28,6 +28,7 @@ import searchRoutes from './routes/search.js';
 import documentRoutes from './routes/document.js';
 import versionsRoutes from './routes/versions.js';
 import tagsRoutes from './routes/tags.js';
+import { createMCPServer, connectMCPTransport } from '../mcp/server.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -93,6 +94,18 @@ async function buildServer() {
   fastify.register(versionsRoutes, { prefix: '/api/versions' });
   fastify.register(tagsRoutes, { prefix: '/api/tags' });
 
+  // Create and connect MCP server using official SDK
+  try {
+    logger.info('Creating MCP server...');
+    const mcpServer = createMCPServer(queryService, vectorStore);
+    logger.info('MCP server created, connecting transport...');
+    await connectMCPTransport(fastify, mcpServer);
+    logger.info('MCP transport connected successfully');
+  } catch (error) {
+    logger.error({ error: error.message, stack: error.stack }, 'Failed to initialize MCP server');
+    throw error;
+  }
+
   // Health check
   fastify.get('/api/health', async () => {
     return {
@@ -114,6 +127,9 @@ async function buildServer() {
         query: 'POST /api/search (alias)',
         getDocument: 'GET /api/doc/:id',
         jobs: 'WS /api/jobs (WebSocket for job progress)',
+        mcp: 'GET /mcp (MCP server info)',
+        mcpJsonRpc: 'POST /mcp (MCP JSON-RPC endpoint)',
+        mcpSSE: 'GET /mcp/sse (MCP SSE streaming)',
       },
     };
   });
