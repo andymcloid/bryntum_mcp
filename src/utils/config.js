@@ -41,8 +41,8 @@ export const config = {
 
   // Chunking Configuration
   chunking: {
-    chunkSize: parseInt(process.env.CHUNK_SIZE) || 1000,
-    chunkOverlap: parseInt(process.env.CHUNK_OVERLAP) || 200,
+    chunkSize: parseInt(process.env.CHUNK_SIZE) || 2500,
+    chunkOverlap: parseInt(process.env.CHUNK_OVERLAP) || 300,
   },
 
   // Logging Configuration

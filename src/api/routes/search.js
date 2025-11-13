@@ -63,8 +63,8 @@ export default async function searchRoutes(fastify) {
         results: results.map(result => ({
           id: result.id,
           text: result.text,
-          score: result.score,
-          relevance: result.score.toFixed(3), // Score is already similarity (0-1)
+          score: result.score || 0,
+          relevance: (result.score || 0).toFixed(3), // Score is already similarity (0-1)
           metadata: result.metadata,
         })),
       };

@@ -190,7 +190,7 @@ export class WeaviateAdapter extends VectorStore {
       let query = this.client.graphql
         .get()
         .withClassName(this.className)
-        .withFields('text version path product framework type tags heading chunkIndex totalChunks _additional { id distance }')
+        .withFields('text version path product framework type tags heading chunkIndex totalChunks _additional { id score }')
         .withHybrid({
           query: '',  // Empty for pure vector search, or we can extract keywords
           vector: queryEmbedding,
@@ -211,19 +211,22 @@ export class WeaviateAdapter extends VectorStore {
       // Transform results
       const objects = result.data?.Get?.[this.className] || [];
 
-      const results = objects.map(obj => {
-        // Weaviate's distance for cosine similarity is 1 - cosine_similarity
-        // So distance 0 = perfect match, distance 2 = opposite vectors
-        // Convert to similarity score: 1 - distance (clamped to 0-1)
-        const distance = obj._additional.distance || 0;
-        const similarity = Math.max(0, Math.min(1, 1 - distance));
+      // Debug: log first result to see what Weaviate returns
+      if (objects.length > 0) {
+        logger.info({ first_result_additional: objects[0]._additional }, 'Weaviate response debug');
+      }
 
-        logger.debug({ distance, similarity, path: obj.path }, 'Score conversion');
+      const results = objects.map(obj => {
+        // Hybrid search returns a score between 0-1 where 1 is best match
+        // Weaviate returns score as a string, so parse it to number
+        const score = parseFloat(obj._additional.score) || 0;
+
+        logger.debug({ score, path: obj.path }, 'Hybrid search score');
 
         return {
           id: obj._additional.id,
           text: obj.text,
-          score: similarity, // Now 0-1 where 1 is best
+          score, // 0-1 where 1 is best match
           metadata: {
             version: obj.version,
             documentPath: obj.path,

@@ -62,7 +62,7 @@ export function chunkText(text, chunkSize = 1000, overlap = 200) {
  * @param {number} maxChunkSize - Maximum size per chunk
  * @returns {Array<{heading: string, content: string}>}
  */
-export function chunkByMarkdownHeaders(text, maxChunkSize = 2000) {
+export function chunkByMarkdownHeaders(text, maxChunkSize = 8000) {
   const lines = text.split('\n');
   const chunks = [];
   let currentChunk = { heading: '', content: '' };
