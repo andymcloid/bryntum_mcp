@@ -94,12 +94,10 @@ async function buildServer() {
   fastify.register(versionsRoutes, { prefix: '/api/versions' });
   fastify.register(tagsRoutes, { prefix: '/api/tags' });
 
-  // Create and connect MCP server using official SDK
+  // Connect MCP server transport
   try {
-    logger.info('Creating MCP server...');
-    const mcpServer = createMCPServer(queryService, vectorStore);
-    logger.info('MCP server created, connecting transport...');
-    await connectMCPTransport(fastify, mcpServer);
+    logger.info('Connecting MCP transport...');
+    await connectMCPTransport(fastify, queryService, vectorStore);
     logger.info('MCP transport connected successfully');
   } catch (error) {
     logger.error({ error: error.message, stack: error.stack }, 'Failed to initialize MCP server');

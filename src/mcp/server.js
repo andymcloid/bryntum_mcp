@@ -13,10 +13,10 @@ import { z } from 'zod';
 const logger = createLogger({ component: 'MCPServer' });
 
 /**
- * Create and configure MCP server using high-level API
+ * Create and configure MCP server using server.tool() method (like aloha-docs)
  */
 export function createMCPServer(queryService, vectorStore) {
-  const mcpServer = new McpServer(
+  const server = new McpServer(
     {
       name: 'bryntum-rag-mcp',
       version: '1.0.0',
@@ -29,17 +29,15 @@ export function createMCPServer(queryService, vectorStore) {
   );
 
   // Tool: search_docs
-  mcpServer.registerTool(
+  server.tool(
     'search_docs',
+    'Search Bryntum documentation using semantic similarity. Returns relevant documentation chunks.',
     {
-      description: 'Search Bryntum documentation using semantic similarity. Returns relevant documentation chunks.',
-      inputSchema: {
-        query: z.string().describe('The search query'),
-        limit: z.number().min(1).max(50).default(5).describe('Maximum number of results to return (1-50)'),
-        version: z.string().optional().describe('Documentation version to search (defaults to latest)'),
-        product: z.string().optional().describe('Filter by product (grid, scheduler, gantt, etc.)'),
-        framework: z.string().optional().describe('Filter by framework (react, angular, vue, vanilla)'),
-      },
+      query: z.string().describe('The search query'),
+      limit: z.number().min(1).max(50).default(5).describe('Maximum number of results to return (1-50)'),
+      version: z.string().optional().describe('Documentation version to search (defaults to latest)'),
+      product: z.string().optional().describe('Filter by product (grid, scheduler, gantt, etc.)'),
+      framework: z.string().optional().describe('Filter by framework (react, angular, vue, vanilla)'),
     },
     async ({ query, limit = 5, version, product, framework }) => {
       logger.info({ tool: 'search_docs', query, limit }, 'Executing MCP tool');
@@ -89,17 +87,15 @@ export function createMCPServer(queryService, vectorStore) {
   );
 
   // Tool: search_examples
-  mcpServer.registerTool(
+  server.tool(
     'search_examples',
+    'Search specifically for code examples in Bryntum documentation.',
     {
-      description: 'Search specifically for code examples in Bryntum documentation.',
-      inputSchema: {
-        query: z.string().describe('The search query'),
-        limit: z.number().min(1).max(50).default(5).describe('Maximum number of results to return (1-50)'),
-        version: z.string().optional().describe('Documentation version to search (defaults to latest)'),
-        product: z.string().optional().describe('Filter by product (grid, scheduler, gantt, etc.)'),
-        framework: z.string().optional().describe('Filter by framework (react, angular, vue, vanilla)'),
-      },
+      query: z.string().describe('The search query'),
+      limit: z.number().min(1).max(50).default(5).describe('Maximum number of results to return (1-50)'),
+      version: z.string().optional().describe('Documentation version to search (defaults to latest)'),
+      product: z.string().optional().describe('Filter by product (grid, scheduler, gantt, etc.)'),
+      framework: z.string().optional().describe('Filter by framework (react, angular, vue, vanilla)'),
     },
     async ({ query, limit = 5, version, product, framework }) => {
       logger.info({ tool: 'search_examples', query, limit }, 'Executing MCP tool');
@@ -149,13 +145,11 @@ export function createMCPServer(queryService, vectorStore) {
   );
 
   // Tool: get_doc
-  mcpServer.registerTool(
+  server.tool(
     'get_doc',
+    'Get a specific document chunk by ID. Use this to retrieve full content after search.',
     {
-      description: 'Get a specific document chunk by ID. Use this to retrieve full content after search.',
-      inputSchema: {
-        id: z.string().describe('Document chunk ID from search results'),
-      },
+      id: z.string().describe('Document chunk ID from search results'),
     },
     async ({ id }) => {
       logger.info({ tool: 'get_doc', id }, 'Executing MCP tool');
@@ -195,12 +189,10 @@ export function createMCPServer(queryService, vectorStore) {
   );
 
   // Tool: list_versions
-  mcpServer.registerTool(
+  server.tool(
     'list_versions',
-    {
-      description: 'List all available documentation versions in the database.',
-      inputSchema: {},
-    },
+    'List all available documentation versions in the database.',
+    {},
     async () => {
       logger.info({ tool: 'list_versions' }, 'Executing MCP tool');
 
@@ -231,17 +223,17 @@ export function createMCPServer(queryService, vectorStore) {
     }
   );
 
-  return mcpServer;
+  return server;
 }
 
 /**
  * Connect MCP server to Fastify via SSE transport
  * Using start() and handlePostMessage() methods
  */
-export async function connectMCPTransport(fastify, mcpServer) {
+export async function connectMCPTransport(fastify, queryService, vectorStore) {
   logger.info('Setting up MCP SSE transport');
 
-  // Session map to track transports
+  // Session map to track transports and their servers
   const sessions = new Map();
 
   // GET endpoint - establishes SSE connection
@@ -261,11 +253,14 @@ export async function connectMCPTransport(fastify, mcpServer) {
       // Create transport with the endpoint for POST messages
       const transport = new SSEServerTransport('/mcp', reply.raw);
 
-      // Connect to MCP server (this calls start() automatically)
-      await mcpServer.connect(transport);
+      // Create a new server instance for this connection
+      const server = createMCPServer(queryService, vectorStore);
 
-      // Store session
-      sessions.set(transport.sessionId, transport);
+      // Connect to MCP server (this calls start() automatically)
+      await server.connect(transport);
+
+      // Store session with both transport and server
+      sessions.set(transport.sessionId, { transport, server });
       logger.info({ sessionId: transport.sessionId, totalSessions: sessions.size }, 'SSE session established');
 
       // Cleanup on disconnect
@@ -290,8 +285,8 @@ export async function connectMCPTransport(fastify, mcpServer) {
         return reply.code(400).send({ error: 'sessionId required' });
       }
 
-      const transport = sessions.get(sessionId);
-      if (!transport) {
+      const session = sessions.get(sessionId);
+      if (!session) {
         logger.warn({ sessionId, availableSessions: Array.from(sessions.keys()) }, 'Session not found');
         reply.header('Access-Control-Allow-Origin', '*');
         return reply.code(404).send({ error: 'Session not found' });
@@ -307,7 +302,7 @@ export async function connectMCPTransport(fastify, mcpServer) {
       reply.raw.setHeader('Access-Control-Expose-Headers', '*');
 
       // Forward to transport's handlePostMessage
-      await transport.handlePostMessage(request.raw, reply.raw, request.body);
+      await session.transport.handlePostMessage(request.raw, reply.raw, request.body);
     } catch (error) {
       logger.error({ error: error.message, stack: error.stack }, 'POST handler error');
       return reply.code(500).send({ error: error.message });
