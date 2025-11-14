@@ -201,7 +201,12 @@ export class WeaviateAdapter extends VectorStore {
         .withFields('text version path product framework type tags heading chunkIndex totalChunks _additional { id distance certainty }')
         .withNearText({
           concepts: [queryText],
+          // Automatically filter out low-quality results
+          // autocut: 1 = more aggressive filtering (only high certainty)
+          // autocut: 2 = balanced filtering
+          // autocut: 3 = less aggressive (more permissive)
         })
+        .withAutocut(2)
         .withLimit(limit);
 
       // Apply filters

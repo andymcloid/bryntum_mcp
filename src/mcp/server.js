@@ -188,6 +188,62 @@ export function createMCPServer(queryService, vectorStore) {
     }
   );
 
+  // Tool: get_full_document
+  server.tool(
+    'get_full_document',
+    'Get the complete full document by reconstructing all chunks. Use this after search to get the entire document content instead of just a single chunk.',
+    {
+      documentPath: z.string().describe('Document path from search result metadata (e.g., "grid/api/Grid.md")'),
+      version: z.string().describe('Documentation version (use same version from search results)'),
+    },
+    async ({ documentPath, version }) => {
+      logger.info({ tool: 'get_full_document', documentPath, version }, 'Executing MCP tool');
+
+      try {
+        if (!documentPath) {
+          throw new Error('documentPath is required');
+        }
+        if (!version) {
+          throw new Error('version is required');
+        }
+
+        const chunks = await vectorStore.getDocumentChunks(documentPath, version);
+
+        if (!chunks || chunks.length === 0) {
+          throw new Error(`Document not found: ${documentPath} (version: ${version})`);
+        }
+
+        // Reconstruct full document text
+        const fullText = chunks.map(chunk => {
+          const heading = chunk.metadata.heading ? `\n\n## ${chunk.metadata.heading}\n\n` : '';
+          return heading + chunk.text;
+        }).join('\n\n');
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  documentPath,
+                  version,
+                  totalChunks: chunks.length,
+                  metadata: chunks[0]?.metadata || {},
+                  fullText,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      } catch (error) {
+        logger.error({ error: error.message, tool: 'get_full_document' }, 'Tool execution failed');
+        throw error;
+      }
+    }
+  );
+
   // Tool: list_versions
   server.tool(
     'list_versions',
@@ -319,7 +375,7 @@ export async function connectMCPTransport(fastify, queryService, vectorStore) {
       transport: 'SSE',
       authentication: 'None (open access)',
       endpoint: '/mcp',
-      tools: ['search_docs', 'search_examples', 'get_doc', 'list_versions'],
+      tools: ['search_docs', 'search_examples', 'get_doc', 'get_full_document', 'list_versions'],
     };
   });
 }

@@ -40,27 +40,72 @@ export class SearchPage extends Component {
                 </div>
 
                 <form id="searchForm" class="mb-8">
-                    <div style="margin-bottom: 1rem;">
-                        <label class="input-label" for="versionSelect">Version</label>
-                        <select id="versionSelect" class="input" style="max-width: 200px;">
-                            <option value="">Latest</option>
-                            ${versionsOptions}
-                        </select>
-                    </div>
-                    <div class="flex gap-2">
-                        <input
-                            type="text"
-                            id="searchInput"
-                            class="input"
-                            placeholder="How do I create a chart with multiple series?"
-                            style="flex: 1;"
-                        />
-                        <button type="submit" class="btn btn-primary">
-                            <svg style="width: 1rem; height: 1rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                            </svg>
-                            <span>Search</span>
-                        </button>
+                    <div class="card" style="margin-bottom: 1rem;">
+                        <div class="card-content">
+                            <div style="margin-bottom: 1rem;">
+                                <label class="input-label" for="searchInput">Search Query</label>
+                                <input
+                                    type="text"
+                                    id="searchInput"
+                                    class="input"
+                                    placeholder="How do I create a grid with grouping?"
+                                    required
+                                />
+                            </div>
+
+                            <details style="margin-bottom: 1rem;">
+                                <summary style="cursor: pointer; font-weight: 500; color: var(--primary); margin-bottom: 0.75rem;">
+                                    Advanced Filters (optional)
+                                </summary>
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; padding: 0.5rem 0;">
+                                    <div>
+                                        <label class="input-label" for="versionSelect">Version</label>
+                                        <select id="versionSelect" class="input">
+                                            <option value="">Latest</option>
+                                            ${versionsOptions}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="input-label" for="productSelect">Product</label>
+                                        <select id="productSelect" class="input">
+                                            <option value="">All Products</option>
+                                            <option value="grid">Grid</option>
+                                            <option value="scheduler">Scheduler</option>
+                                            <option value="schedulerpro">Scheduler Pro</option>
+                                            <option value="gantt">Gantt</option>
+                                            <option value="calendar">Calendar</option>
+                                            <option value="taskboard">Taskboard</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="input-label" for="frameworkSelect">Framework</label>
+                                        <select id="frameworkSelect" class="input">
+                                            <option value="">All Frameworks</option>
+                                            <option value="vanilla">Vanilla JS</option>
+                                            <option value="react">React</option>
+                                            <option value="angular">Angular</option>
+                                            <option value="vue">Vue</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="input-label" for="limitSelect">Results Limit</label>
+                                        <select id="limitSelect" class="input">
+                                            <option value="3">3 results</option>
+                                            <option value="5" selected>5 results</option>
+                                            <option value="10">10 results</option>
+                                            <option value="20">20 results</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </details>
+
+                            <button type="submit" class="btn btn-primary btn-full">
+                                <svg style="width: 1rem; height: 1rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                                </svg>
+                                <span>Search</span>
+                            </button>
+                        </div>
                     </div>
                 </form>
 
@@ -84,19 +129,34 @@ export class SearchPage extends Component {
         const input = document.getElementById('searchInput');
         const query = input.value.trim();
 
-        const versionSelect = document.getElementById('versionSelect');
-        const version = versionSelect.value || null; // null means latest
-
         if (!query) return;
+
+        // Get all filter values
+        const versionSelect = document.getElementById('versionSelect');
+        const productSelect = document.getElementById('productSelect');
+        const frameworkSelect = document.getElementById('frameworkSelect');
+        const limitSelect = document.getElementById('limitSelect');
+
+        const version = versionSelect.value || null; // null means latest
+        const limit = parseInt(limitSelect.value) || 5;
+
+        // Build filter object (only include non-empty values)
+        const filter = {};
+        if (productSelect.value) filter.product = productSelect.value;
+        if (frameworkSelect.value) filter.framework = frameworkSelect.value;
 
         this.loading = true;
         this.searched = true;
         this.showSearching();
 
         try {
-            const response = await apiClient.search(query, 10, version);
+            const response = await apiClient.search(query, {
+                limit,
+                version,
+                filter
+            });
             this.results = response.results;
-            this.renderResults(response.durationMs, response.version);
+            this.renderResults(response.durationMs, response.version, filter);
         } catch (error) {
             console.error('Search failed:', error);
             document.getElementById('searchResults').innerHTML = `
@@ -119,12 +179,24 @@ export class SearchPage extends Component {
         document.getElementById('searchResults').innerHTML = '';
     }
 
-    renderResults(duration, version) {
+    renderResults(duration, version, filter = {}) {
+        // Build active filters display
+        const activeFilters = [];
+        if (version) activeFilters.push(`Version: ${version}`);
+        if (filter.product) activeFilters.push(`Product: ${filter.product}`);
+        if (filter.framework) activeFilters.push(`Framework: ${filter.framework}`);
+
+        const filtersHtml = activeFilters.length > 0
+            ? `<div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem;">
+                ${activeFilters.map(f => `<span class="badge badge-secondary">${f}</span>`).join('')}
+               </div>`
+            : '';
+
         // Render stats
         document.getElementById('searchStats').innerHTML = `
             <div class="mb-4" style="font-size: 0.875rem; color: var(--text-secondary);">
                 Found ${this.results.length} results in ${duration}ms
-                ${version ? ` <span style="margin-left: 0.5rem; color: var(--primary); font-weight: 500;">(Version: ${version})</span>` : ''}
+                ${filtersHtml}
             </div>
         `;
 

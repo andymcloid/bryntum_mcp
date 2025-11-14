@@ -15,6 +15,7 @@ export class AdminPage extends Component {
         this.version = null;
         this.currentJobId = null;
         this.jobStatus = null;
+        this.stats = null;
     }
 
     async render() {
@@ -57,16 +58,14 @@ export class AdminPage extends Component {
 
                 <div class="card">
                     <div class="card-header">
-                        <h2 class="card-title">Instructions</h2>
+                        <h2 class="card-title">Database Statistics</h2>
+                        <p class="card-description">Overview of indexed documentation</p>
                     </div>
-                    <div class="card-content">
-                        <ol style="list-style: decimal; list-style-position: inside; color: var(--text-secondary); font-size: 0.875rem;">
-                            <li style="margin-bottom: 0.5rem;">Prepare a .zip file containing markdown (.md) files</li>
-                            <li style="margin-bottom: 0.5rem;">Select the file using the file picker above</li>
-                            <li style="margin-bottom: 0.5rem;">Click "Upload & Index" to start the background job</li>
-                            <li style="margin-bottom: 0.5rem;">Watch real-time progress via WebSocket</li>
-                            <li style="margin-bottom: 0.5rem;">Job continues even if you refresh the page</li>
-                        </ol>
+                    <div id="statsContent" class="card-content">
+                        <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+                            <div class="loader" style="margin: 0 auto;"></div>
+                            <p style="margin-top: 1rem;">Loading statistics...</p>
+                        </div>
                     </div>
                 </div>
 
@@ -100,6 +99,7 @@ export class AdminPage extends Component {
         this.setContent(html);
         this.attachEventListeners();
         this.connectWebSocket();
+        await this.loadStats();
     }
 
     connectWebSocket() {
@@ -380,6 +380,10 @@ export class AdminPage extends Component {
         if (job.status === 'completed' || job.status === 'failed') {
             setTimeout(() => {
                 this.currentJobId = null;
+                // Reload stats after successful indexing
+                if (job.status === 'completed') {
+                    this.loadStats();
+                }
             }, 500);
         }
     }
@@ -391,6 +395,100 @@ export class AdminPage extends Component {
                 <strong>Error:</strong> ${message}
             </div>
         `;
+    }
+
+    async loadStats() {
+        try {
+            const response = await fetch('/api/stats');
+            if (!response.ok) {
+                throw new Error('Failed to load stats');
+            }
+            this.stats = await response.json();
+            this.showStats();
+        } catch (error) {
+            console.error('Error loading stats:', error);
+            const container = document.getElementById('statsContent');
+            if (container) {
+                container.innerHTML = `
+                    <div class="alert alert-error">
+                        <strong>Error:</strong> Failed to load statistics
+                    </div>
+                `;
+            }
+        }
+    }
+
+    showStats() {
+        const container = document.getElementById('statsContent');
+        if (!container || !this.stats) return;
+
+        const s = this.stats;
+
+        const html = `
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-value">${s.versions.total}</div>
+                    <div class="stat-label">Versions</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">${s.documents.totalChunks.toLocaleString()}</div>
+                    <div class="stat-label">Total Chunks</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">${s.documents.estimatedDocuments.toLocaleString()}</div>
+                    <div class="stat-label">~Documents</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">${s.documents.averageChunksPerDoc}</div>
+                    <div class="stat-label">Avg Chunks/Doc</div>
+                </div>
+            </div>
+
+            <div style="margin-top: 1.5rem;">
+                <div style="margin-bottom: 1rem;">
+                    <div style="font-weight: 600; margin-bottom: 0.5rem; font-size: 0.875rem;">Latest Version</div>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <span class="badge badge-primary">${s.versions.latest || 'None'}</span>
+                    </div>
+                </div>
+
+                ${s.versions.all.length > 1 ? `
+                    <div style="margin-bottom: 1rem;">
+                        <div style="font-weight: 600; margin-bottom: 0.5rem; font-size: 0.875rem;">All Versions</div>
+                        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                            ${s.versions.all.map(v => `<span class="badge badge-secondary">${v}</span>`).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+
+                ${s.products.length > 0 ? `
+                    <div style="margin-bottom: 1rem;">
+                        <div style="font-weight: 600; margin-bottom: 0.5rem; font-size: 0.875rem;">Products</div>
+                        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                            ${s.products.map(p => `<span class="badge badge-success">${p}</span>`).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+
+                ${s.frameworks.length > 0 ? `
+                    <div style="margin-bottom: 1rem;">
+                        <div style="font-weight: 600; margin-bottom: 0.5rem; font-size: 0.875rem;">Frameworks</div>
+                        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                            ${s.frameworks.map(f => `<span class="badge badge-secondary">${f}</span>`).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+
+                <div>
+                    <div style="font-weight: 600; margin-bottom: 0.5rem; font-size: 0.875rem;">Tags</div>
+                    <div style="color: var(--text-secondary); font-size: 0.875rem;">
+                        ${s.tags.total} unique tags in database
+                    </div>
+                </div>
+            </div>
+        `;
+
+        container.innerHTML = html;
     }
 
     async handleClearAll() {
@@ -425,6 +523,9 @@ export class AdminPage extends Component {
                     <strong>Success:</strong> All documents have been cleared from the database.
                 </div>
             `;
+
+            // Reload stats to show empty database
+            await this.loadStats();
 
             // Reset button
             clearAllBtn.disabled = false;

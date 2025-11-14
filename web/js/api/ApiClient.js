@@ -12,13 +12,20 @@ export class ApiClient {
     /**
      * Search for documents
      */
-    async search(query, limit = 5, version = null, includeContext = false) {
+    async search(query, options = {}) {
+        const {
+            limit = 5,
+            version = null,
+            filter = {},
+            includeContext = false
+        } = options;
+
         const response = await fetch(`${this.baseUrl}/search`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ query, limit, version, includeContext }),
+            body: JSON.stringify({ query, limit, version, filter, includeContext }),
         });
 
         if (!response.ok) {

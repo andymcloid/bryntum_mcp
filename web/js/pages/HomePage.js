@@ -66,8 +66,8 @@ export class HomePage extends Component {
                     <div style="background-color: var(--background); border-radius: var(--radius); padding: 1rem; margin-bottom: 1rem; font-family: 'Courier New', monospace; font-size: 0.875rem; overflow-x: auto;">
 <pre style="margin: 0; color: var(--text);">{
   "mcpServers": {
-    "bryntum-rag": {
-      "transport": "http",
+    "bryntum": {
+      "type": "sse",
       "url": "${mcpUrl}"
     }
   }
@@ -76,8 +76,9 @@ export class HomePage extends Component {
 
                     <div style="font-size: 0.875rem; color: var(--text-secondary);">
                         <p style="margin-bottom: 0.5rem;"><strong>MCP Endpoint:</strong> <code>GET/POST ${mcpUrl}</code></p>
+                        <p style="margin-bottom: 0.5rem;"><strong>Transport:</strong> SSE (Server-Sent Events)</p>
                         <p style="margin-bottom: 0.5rem;"><strong>Authentication:</strong> None (open access)</p>
-                        <p><strong>Available Tools:</strong> search_docs, search_examples, get_doc, list_versions</p>
+                        <p><strong>Available Tools:</strong> search_docs, search_examples, get_doc, get_full_document, list_versions</p>
                     </div>
                 </div>
             </div>

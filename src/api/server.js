@@ -26,6 +26,7 @@ import searchRoutes from './routes/search.js';
 import documentRoutes from './routes/document.js';
 import versionsRoutes from './routes/versions.js';
 import tagsRoutes from './routes/tags.js';
+import statsRoutes from './routes/stats.js';
 import generateRoutes from './routes/generate.js';
 import { createMCPServer, connectMCPTransport } from '../mcp/server.js';
 
@@ -84,6 +85,7 @@ async function buildServer() {
   fastify.register(documentRoutes, { prefix: '/api/doc' });
   fastify.register(versionsRoutes, { prefix: '/api/versions' });
   fastify.register(tagsRoutes, { prefix: '/api/tags' });
+  fastify.register(statsRoutes, { prefix: '/api/stats' });
   fastify.register(generateRoutes, { prefix: '/api' });
 
   // Connect MCP server transport
