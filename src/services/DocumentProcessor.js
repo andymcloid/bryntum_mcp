@@ -20,8 +20,8 @@ export class DocumentProcessor {
 
   /**
    * Extract tags from document path
-   * Example: "mini_docs_6.3.3/Core/api/Core/helper/DomHelper.md" => ["Core", "api", "helper"]
-   * - Removes root folder (first part)
+   * Example: "grid/Core/api/Core/helper/DomHelper.md" => ["grid", "Core", "api", "Core", "helper"]
+   * - Includes all folders from root to file
    * - Removes filename (last part)
    * - Removes duplicates
    */
@@ -30,8 +30,8 @@ export class DocumentProcessor {
     const pathWithoutExt = documentPath.replace(/\.[^/.]+$/, '');
     const parts = pathWithoutExt.split('/').filter(part => part && part !== '.');
 
-    // Remove filename (last part) and root folder (first part)
-    const pathTags = parts.slice(1, -1);
+    // Remove filename (last part) but keep all folders including root
+    const pathTags = parts.slice(0, -1);
 
     // Remove duplicates
     const uniqueTags = [...new Set(pathTags)];
@@ -110,9 +110,8 @@ export class DocumentProcessor {
   processDocument(document) {
     logger.debug({ path: document.path }, 'Processing document');
 
-    const chunks = this.useMarkdownHeaders
-      ? this._chunkByHeaders(document.content)
-      : this._chunkBySize(document.content);
+    // NO CHUNKING - Keep entire document as one chunk
+    const chunkId = randomUUID();
 
     // Extract metadata from document path
     const tags = this.extractTags(document.path);
@@ -120,33 +119,27 @@ export class DocumentProcessor {
     const framework = this.extractFramework(document.path);
     const type = this.extractType(document.path);
 
-    const processedChunks = chunks.map((chunk, index) => {
-      const chunkId = randomUUID();
-      const text = typeof chunk === 'string' ? chunk : chunk.content;
-      const heading = typeof chunk === 'string' ? '' : chunk.heading;
-
-      return {
-        id: chunkId,
-        text,
-        metadata: {
-          ...document.metadata,
-          documentPath: document.path,
-          path: document.path,
-          tags,       // Auto-generated tags from path
-          product,    // Auto-extracted product
-          framework,  // Auto-extracted framework
-          type,       // Auto-extracted document type
-          chunkIndex: index,
-          totalChunks: chunks.length,
-          heading,
-          chunkId,
-        },
-      };
-    });
+    const processedChunks = [{
+      id: chunkId,
+      text: document.content,
+      metadata: {
+        ...document.metadata,
+        documentPath: document.path,
+        path: document.path,
+        tags,       // Auto-generated tags from path
+        product,    // Auto-extracted product
+        framework,  // Auto-extracted framework
+        type,       // Auto-extracted document type
+        chunkIndex: 0,
+        totalChunks: 1,
+        heading: '',
+        chunkId,
+      },
+    }];
 
     logger.debug(
-      { path: document.path, chunks: processedChunks.length, tags, product, framework, type },
-      'Document processed'
+      { path: document.path, chunks: 1, tags, product, framework, type },
+      'Document processed (no chunking)'
     );
 
     return processedChunks;

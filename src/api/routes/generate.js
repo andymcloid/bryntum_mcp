@@ -35,7 +35,7 @@ export default async function generateRoutes(fastify, options) {
 
       // Step 1: Search for relevant documentation using MCP
       const searchResults = await queryService.search(prompt, {
-        limit: 5,
+        limit: 3,
         filter: { product: 'grid' },
       });
 

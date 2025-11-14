@@ -459,19 +459,21 @@ new Grid({
                         <div style="margin-top: 0.25rem; font-size: 0.8125rem; color: var(--text-secondary);">
                             ${r.metadata.product || 'N/A'} - ${r.metadata.framework || 'N/A'}
                         </div>
-                        <pre class="debug-code" style="margin-top: 0.5rem;">${this.escapeHtml(r.text)}</pre>
+                        <div style="margin-top: 0.5rem;">
+                            ${this.createExpandableText(r.text, 400)}
+                        </div>
                     </div>
                 `).join('')}
             </div>
 
             <div class="debug-step">
-                <div class="debug-step-header">4. Context Sent to Claude (preview)</div>
-                <pre class="debug-code">${this.escapeHtml(debug.docsContext)}</pre>
+                <div class="debug-step-header">4. Context Sent to Claude</div>
+                ${this.createExpandableText(debug.docsContext, 500)}
             </div>
 
             <div class="debug-step">
-                <div class="debug-step-header">5. Full Prompt to Claude (preview)</div>
-                <pre class="debug-code">${this.escapeHtml(debug.fullPrompt)}</pre>
+                <div class="debug-step-header">5. Full Prompt to Claude</div>
+                ${this.createExpandableText(debug.fullPrompt, 500)}
             </div>
 
             <div class="debug-step">
@@ -483,8 +485,8 @@ new Grid({
             </div>
 
             <div class="debug-step">
-                <div class="debug-step-header">7. Claude Raw Response (preview)</div>
-                <pre class="debug-code">${this.escapeHtml(debug.rawResponse)}</pre>
+                <div class="debug-step-header">7. Claude Raw Response</div>
+                ${this.createExpandableText(debug.rawResponse, 500)}
             </div>
 
             <div class="debug-step">
@@ -502,5 +504,42 @@ new Grid({
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    /**
+     * Create expandable text with preview
+     * @param {string} text - Full text content
+     * @param {number} previewLength - Length of preview (default 300)
+     * @returns {string} HTML for expandable text
+     */
+    createExpandableText(text, previewLength = 300) {
+        if (text.length <= previewLength) {
+            return `<pre class="debug-code">${this.escapeHtml(text)}</pre>`;
+        }
+
+        const id = `expand-${Math.random().toString(36).substr(2, 9)}`;
+        const preview = this.escapeHtml(text.substring(0, previewLength));
+        const fullText = this.escapeHtml(text);
+
+        return `
+            <div class="expandable-text">
+                <pre class="debug-code" id="${id}-preview">${preview}...</pre>
+                <pre class="debug-code" id="${id}-full" style="display: none;">${fullText}</pre>
+                <button class="btn btn-sm" style="margin-top: 0.5rem;" onclick="
+                    const preview = document.getElementById('${id}-preview');
+                    const full = document.getElementById('${id}-full');
+                    const btn = this;
+                    if (full.style.display === 'none') {
+                        preview.style.display = 'none';
+                        full.style.display = 'block';
+                        btn.textContent = 'Show less';
+                    } else {
+                        preview.style.display = 'block';
+                        full.style.display = 'none';
+                        btn.textContent = 'Show more';
+                    }
+                ">Show more</button>
+            </div>
+        `;
     }
 }
