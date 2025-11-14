@@ -195,7 +195,7 @@ const data = ${JSON.stringify(gridData, null, 4)};
 
 // Grid configuration
 new Grid({
-    height   : 500,
+    height   : '100%',
     appendTo : 'preview-container',
     columns  : [
         {

@@ -398,8 +398,7 @@
 
 .demo-tab-content {
     display: none;
-    min-height: 500px;
-    max-height: 600px;
+    height: 600px;
 }
 
 .demo-tab-content.active {
@@ -414,7 +413,6 @@
 
 .code-editor {
     height: 100%;
-    overflow: hidden;
 }
 
 .CodeMirror {
