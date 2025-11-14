@@ -80,8 +80,8 @@ export class HomePage extends Component {
                         <p style="margin-bottom: 0.5rem;"><strong>Authentication:</strong> None (open access)</p>
                         <p style="margin-bottom: 0.75rem;"><strong>Available Tools:</strong></p>
                         <ul style="list-style: disc; list-style-position: inside; padding-left: 0.5rem; line-height: 1.8;">
+                            <li><code>install_instructions</code> - Get CDN installation snippets (HTML/CSS/JS)</li>
                             <li><code>search_docs</code> - Search documentation with semantic similarity</li>
-                            <li><code>install_instructions</code> - Get npm install commands for Bryntum trial versions</li>
                             <li><code>get_doc</code> - Get a specific document chunk by ID</li>
                             <li><code>get_full_document</code> - Get complete document (all chunks)</li>
                             <li><code>list_versions</code> - List all available documentation versions</li>

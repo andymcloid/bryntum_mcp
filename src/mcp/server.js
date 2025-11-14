@@ -89,15 +89,12 @@ export function createMCPServer(queryService, vectorStore) {
   // Tool: install_instructions
   server.tool(
     'install_instructions',
-    'Get installation instructions for Bryntum trial versions. Returns npm install commands with the latest available version.',
+    'Get CDN installation instructions for Bryntum products. Returns HTML snippets with <link> and <script> tags for Grid, Scheduler, Scheduler Pro, Gantt, and Taskboard. IMPORTANT: Includes notes about product dependencies (e.g., Scheduler includes Grid).',
     {},
     async () => {
       logger.info({ tool: 'install_instructions' }, 'Executing MCP tool');
 
       try {
-        // Get latest version from database
-        const latestVersion = await vectorStore.getLatestVersion();
-
         // Read installation instructions file
         const fs = await import('fs/promises');
         const path = await import('path');
@@ -106,12 +103,7 @@ export function createMCPServer(queryService, vectorStore) {
         const __dirname = path.dirname(__filename);
 
         const instructionsPath = path.join(__dirname, '../installation_instructions.md');
-        let instructions = await fs.readFile(instructionsPath, 'utf-8');
-
-        // Replace {version} placeholder with latest version
-        if (latestVersion) {
-          instructions = instructions.replace(/\{version\}/g, latestVersion);
-        }
+        const instructions = await fs.readFile(instructionsPath, 'utf-8');
 
         return {
           content: [
@@ -489,8 +481,8 @@ export async function connectMCPTransport(fastify, queryService, vectorStore) {
       authentication: 'None (open access)',
       endpoint: '/mcp',
       tools: [
-        'search_docs',
         'install_instructions',
+        'search_docs',
         'get_doc',
         'get_full_document',
         'list_versions',
