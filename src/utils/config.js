@@ -15,12 +15,6 @@ const __dirname = dirname(__filename);
 loadEnv({ path: join(__dirname, '../../.env') });
 
 export const config = {
-  // OpenAI Configuration
-  openai: {
-    apiKey: process.env.OPENAI_API_KEY,
-    embeddingModel: process.env.OPENAI_EMBEDDING_MODEL || 'text-embedding-3-small',
-  },
-
   // Server Configuration
   server: {
     port: parseInt(process.env.PORT) || 3000,
@@ -41,8 +35,8 @@ export const config = {
 
   // Chunking Configuration
   chunking: {
-    chunkSize: parseInt(process.env.CHUNK_SIZE) || 2500,
-    chunkOverlap: parseInt(process.env.CHUNK_OVERLAP) || 300,
+    chunkSize: parseInt(process.env.CHUNK_SIZE) || 6000,
+    chunkOverlap: parseInt(process.env.CHUNK_OVERLAP) || 500,
   },
 
   // Logging Configuration
@@ -56,13 +50,7 @@ export const config = {
  * @throws {Error} If required configuration is missing
  */
 export function validateConfig() {
-  const required = [
-    { key: 'openai.apiKey', value: config.openai.apiKey, name: 'OPENAI_API_KEY' },
-  ];
-
-  for (const { key, value, name } of required) {
-    if (!value) {
-      throw new Error(`Missing required configuration: ${name}`);
-    }
-  }
+  // All required configs now have defaults or are validated at runtime
+  // Weaviate handles embeddings using its own OpenAI key configured in Docker
+  return true;
 }

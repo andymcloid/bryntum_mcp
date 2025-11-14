@@ -161,7 +161,8 @@ export class JobsWebSocket {
             try {
                 callback(data);
             } catch (error) {
-                console.error(`Error in ${event} listener:`, error);
+                // Silently ignore listener errors (e.g., DOM elements not found on different pages)
+                // Listeners are expected to handle their own error cases
             }
         });
     }

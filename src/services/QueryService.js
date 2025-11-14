@@ -1,7 +1,8 @@
 /**
  * Query Service
  *
- * Handles RAG queries: embed query, search vector store, format results.
+ * Handles RAG queries: search vector store, format results.
+ * Weaviate handles embedding automatically via text2vec-openai module.
  * Follows Single Responsibility Principle (SRP) and Dependency Inversion Principle (DIP).
  */
 import { createLogger } from '../utils/logger.js';
@@ -9,8 +10,7 @@ import { createLogger } from '../utils/logger.js';
 const logger = createLogger({ component: 'QueryService' });
 
 export class QueryService {
-  constructor(embeddingService, vectorStore) {
-    this.embeddingService = embeddingService;
+  constructor(vectorStore) {
     this.vectorStore = vectorStore;
   }
 
@@ -51,14 +51,11 @@ export class QueryService {
 
       logger.info({ query, limit, filter: versionFilter, tags }, 'Searching for documents');
 
-      // Generate query embedding
-      const queryEmbedding = await this.embeddingService.embedQuery(query);
-
       // If tags are specified, we need to fetch more results to ensure we have enough after filtering
       const fetchLimit = tags && tags.length > 0 ? limit * 3 : limit;
 
-      // Search vector store with version filter
-      let results = await this.vectorStore.search(queryEmbedding, fetchLimit, versionFilter);
+      // Search vector store with version filter (Weaviate generates embedding automatically)
+      let results = await this.vectorStore.search(query, fetchLimit, versionFilter);
 
       // Post-filter by tags if specified
       if (tags && tags.length > 0) {

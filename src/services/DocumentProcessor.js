@@ -110,8 +110,8 @@ export class DocumentProcessor {
   processDocument(document) {
     logger.debug({ path: document.path }, 'Processing document');
 
-    // NO CHUNKING - Keep entire document as one chunk
-    const chunkId = randomUUID();
+    // Chunk by size with larger chunks for better context
+    const chunks = this._chunkBySize(document.content);
 
     // Extract metadata from document path
     const tags = this.extractTags(document.path);
@@ -119,27 +119,33 @@ export class DocumentProcessor {
     const framework = this.extractFramework(document.path);
     const type = this.extractType(document.path);
 
-    const processedChunks = [{
-      id: chunkId,
-      text: document.content,
-      metadata: {
-        ...document.metadata,
-        documentPath: document.path,
-        path: document.path,
-        tags,       // Auto-generated tags from path
-        product,    // Auto-extracted product
-        framework,  // Auto-extracted framework
-        type,       // Auto-extracted document type
-        chunkIndex: 0,
-        totalChunks: 1,
-        heading: '',
-        chunkId,
-      },
-    }];
+    const processedChunks = chunks.map((chunk, index) => {
+      const chunkId = randomUUID();
+      const text = typeof chunk === 'string' ? chunk : chunk.content;
+      const heading = typeof chunk === 'string' ? '' : chunk.heading;
+
+      return {
+        id: chunkId,
+        text,
+        metadata: {
+          ...document.metadata,
+          documentPath: document.path,
+          path: document.path,
+          tags,       // Auto-generated tags from path
+          product,    // Auto-extracted product
+          framework,  // Auto-extracted framework
+          type,       // Auto-extracted document type
+          chunkIndex: index,
+          totalChunks: chunks.length,
+          heading,
+          chunkId,
+        },
+      };
+    });
 
     logger.debug(
-      { path: document.path, chunks: 1, tags, product, framework, type },
-      'Document processed (no chunking)'
+      { path: document.path, chunks: processedChunks.length, tags, product, framework, type },
+      'Document processed'
     );
 
     return processedChunks;

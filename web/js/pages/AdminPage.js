@@ -130,7 +130,6 @@ export class AdminPage extends Component {
 
         // Handle progress updates
         jobsWebSocket.on('progress', (job) => {
-            console.log('Progress update:', job);
             this.showProgress(job);
         });
     }
@@ -273,6 +272,10 @@ export class AdminPage extends Component {
         this.jobStatus = job;
 
         const container = document.getElementById('progressContainer');
+
+        // Silently ignore if container doesn't exist (e.g., user is on another page)
+        if (!container) return;
+
         const stageLabels = {
             uploading: 'Uploading',
             extracting: 'Extracting',

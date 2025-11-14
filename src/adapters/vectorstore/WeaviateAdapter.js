@@ -65,7 +65,15 @@ export class WeaviateAdapter extends VectorStore {
       const classObj = {
         class: this.className,
         description: 'Bryntum documentation chunks',
-        vectorizer: 'none', // We provide our own vectors from OpenAI
+        vectorizer: 'text2vec-openai',
+        moduleConfig: {
+          'text2vec-openai': {
+            model: 'text-embedding-3-small',
+            dimensions: 1536,
+            type: 'text',
+            vectorizeClassName: false,
+          },
+        },
         properties: [
           {
             name: 'text',
@@ -152,7 +160,7 @@ export class WeaviateAdapter extends VectorStore {
             chunkIndex: doc.metadata.chunkIndex || 0,
             totalChunks: doc.metadata.totalChunks || 1,
           },
-          vector: doc.embedding,
+          // No vector - Weaviate generates it automatically via text2vec-openai
           id: doc.id, // Use provided ID
         };
 
@@ -182,19 +190,17 @@ export class WeaviateAdapter extends VectorStore {
     }
   }
 
-  async search(queryEmbedding, limit = 5, filter = {}) {
+  async search(queryText, limit = 5, filter = {}) {
     try {
-      logger.debug({ limit, filter }, 'Searching for similar documents');
+      logger.debug({ queryText, limit, filter }, 'Searching for similar documents');
 
-      // Build hybrid search query (semantic + BM25)
+      // Build nearText query - Weaviate generates embedding automatically
       let query = this.client.graphql
         .get()
         .withClassName(this.className)
-        .withFields('text version path product framework type tags heading chunkIndex totalChunks _additional { id score }')
-        .withHybrid({
-          query: '',  // Empty for pure vector search, or we can extract keywords
-          vector: queryEmbedding,
-          alpha: 0.75, // 0.75 = more weight on semantic, 0.5 = balanced, 0 = pure BM25
+        .withFields('text version path product framework type tags heading chunkIndex totalChunks _additional { id distance certainty }')
+        .withNearText({
+          concepts: [queryText],
         })
         .withLimit(limit);
 
@@ -217,11 +223,11 @@ export class WeaviateAdapter extends VectorStore {
       }
 
       const results = objects.map(obj => {
-        // Hybrid search returns a score between 0-1 where 1 is best match
-        // Weaviate returns score as a string, so parse it to number
-        const score = parseFloat(obj._additional.score) || 0;
+        // nearText returns certainty (0-1 where 1 is best match) and distance
+        // Use certainty as score for consistency
+        const score = parseFloat(obj._additional.certainty) || 0;
 
-        logger.debug({ score, path: obj.path }, 'Hybrid search score');
+        logger.debug({ score, certainty: obj._additional.certainty, distance: obj._additional.distance, path: obj.path }, 'nearText search score');
 
         return {
           id: obj._additional.id,

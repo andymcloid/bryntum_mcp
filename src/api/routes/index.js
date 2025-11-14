@@ -191,7 +191,6 @@ async function runIndexingJob(jobId, tempFilePath, version, fastify) {
     const indexService = new IndexService(
       documentSource,
       documentProcessor,
-      fastify.embeddingService,
       fastify.vectorStore
     );
 

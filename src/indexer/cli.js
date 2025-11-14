@@ -14,12 +14,10 @@
 import { parseArgs } from 'node:util';
 import { config, validateConfig } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
-import { OpenAIAdapter } from '../adapters/embeddings/OpenAIAdapter.js';
-import { LanceDBAdapter } from '../adapters/vectorstore/LanceDBAdapter.js';
+import { WeaviateAdapter } from '../adapters/vectorstore/WeaviateAdapter.js';
 import { FileSystemSource } from '../adapters/sources/FileSystemSource.js';
 import { ZipSource } from '../adapters/sources/ZipSource.js';
 import { DocumentProcessor } from '../services/DocumentProcessor.js';
-import { EmbeddingService } from '../services/EmbeddingService.js';
 import { IndexService } from '../services/IndexService.js';
 
 async function main() {
@@ -29,6 +27,7 @@ async function main() {
       options: {
         source: { type: 'string', short: 's' },
         zip: { type: 'string', short: 'z' },
+        version: { type: 'string', short: 'v' },
         clear: { type: 'boolean', default: false },
         'batch-size': { type: 'string', default: '50' },
         help: { type: 'boolean', short: 'h' },
@@ -46,6 +45,12 @@ async function main() {
     // Validate arguments
     if (!values.source && !values.zip) {
       logger.error('Either --source or --zip must be specified');
+      printHelp();
+      process.exit(1);
+    }
+
+    if (!values.version) {
+      logger.error('--version is required');
       printHelp();
       process.exit(1);
     }
@@ -68,26 +73,24 @@ async function main() {
     logger.info({ documentCount: docCount }, 'Found documents');
 
     // Create adapters
-    const embeddingProvider = new OpenAIAdapter(
-      config.openai.apiKey,
-      config.openai.embeddingModel
+    const vectorStore = new WeaviateAdapter(
+      config.weaviate.host,
+      config.weaviate.port,
+      config.weaviate.className
     );
-
-    const vectorStore = new LanceDBAdapter(config.storage.vectorDbPath);
 
     // Create services
     const documentProcessor = new DocumentProcessor();
-    const embeddingService = new EmbeddingService(embeddingProvider);
     const indexService = new IndexService(
       documentSource,
       documentProcessor,
-      embeddingService,
       vectorStore
     );
 
     // Run indexing
     const startTime = Date.now();
     const result = await indexService.indexDocuments({
+      version: values.version,
       batchSize: parseInt(values['batch-size']),
       clearExisting: values.clear,
     });
@@ -121,12 +124,14 @@ Usage:
 Options:
   -s, --source <path>       Path to directory containing markdown files
   -z, --zip <path>          Path to zip file containing markdown files
+  -v, --version <version>   Documentation version (required, e.g., "6.3.3")
   --clear                   Clear existing documents before indexing
   --batch-size <size>       Batch size for processing (default: 50)
   -h, --help                Show this help message
 
 Examples:
-  npm run index -- --source ./temp/docs-llm
+  npm run index -- --source ./temp/docs-llm --version 6.3.3
+  npm run index -- --zip docs.zip --version 6.3.3
   npm run index -- --zip ./docs-llm.zip
   npm run index -- --source ./docs --clear --batch-size 100
 

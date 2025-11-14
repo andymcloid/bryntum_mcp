@@ -1,7 +1,8 @@
 /**
  * Index Service
  *
- * Orchestrates the indexing pipeline: source -> process -> embed -> store.
+ * Orchestrates the indexing pipeline: source -> process -> store.
+ * Weaviate handles embedding automatically via text2vec-openai module.
  * Follows Single Responsibility Principle (SRP) and Dependency Inversion Principle (DIP).
  */
 import { createLogger } from '../utils/logger.js';
@@ -9,10 +10,9 @@ import { createLogger } from '../utils/logger.js';
 const logger = createLogger({ component: 'IndexService' });
 
 export class IndexService {
-  constructor(documentSource, documentProcessor, embeddingService, vectorStore) {
+  constructor(documentSource, documentProcessor, vectorStore) {
     this.documentSource = documentSource;
     this.documentProcessor = documentProcessor;
-    this.embeddingService = embeddingService;
     this.vectorStore = vectorStore;
   }
 
@@ -102,16 +102,16 @@ export class IndexService {
 
         // Process in batches
         if (chunks.length >= batchSize) {
-          const embeddedChunks = await this._embedAndStoreBatch(chunks);
-          chunksIndexed += embeddedChunks;
+          await this.vectorStore.addDocuments(chunks);
+          chunksIndexed += chunks.length;
           chunks = [];
         }
       }
 
       // Process remaining chunks
       if (chunks.length > 0) {
-        const embeddedChunks = await this._embedAndStoreBatch(chunks);
-        chunksIndexed += embeddedChunks;
+        await this.vectorStore.addDocuments(chunks);
+        chunksIndexed += chunks.length;
       }
 
       // Cleanup
@@ -133,25 +133,5 @@ export class IndexService {
       logger.error({ error: error.message }, 'Indexing failed');
       throw error;
     }
-  }
-
-  /**
-   * Embed and store a batch of chunks
-   * @private
-   */
-  async _embedAndStoreBatch(chunks) {
-    logger.debug({ count: chunks.length }, 'Embedding and storing batch');
-
-    const embeddedChunks = [];
-
-    for await (const embeddedChunk of this.embeddingService.embedChunks(chunks)) {
-      embeddedChunks.push(embeddedChunk);
-    }
-
-    await this.vectorStore.addDocuments(embeddedChunks);
-
-    logger.debug({ count: embeddedChunks.length }, 'Batch stored');
-
-    return embeddedChunks.length;
   }
 }

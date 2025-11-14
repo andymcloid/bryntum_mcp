@@ -18,9 +18,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { config, validateConfig } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
-import { OpenAIAdapter } from '../adapters/embeddings/OpenAIAdapter.js';
 import { WeaviateAdapter } from '../adapters/vectorstore/WeaviateAdapter.js';
-import { EmbeddingService } from '../services/EmbeddingService.js';
 import { QueryService } from '../services/QueryService.js';
 import { jobManager } from '../services/JobManager.js';
 import indexRoutes from './routes/index.js';
@@ -65,28 +63,20 @@ async function buildServer() {
   });
 
   // Initialize shared services
-  const embeddingProvider = new OpenAIAdapter(
-    config.openai.apiKey,
-    config.openai.embeddingModel
-  );
-
   const vectorStore = new WeaviateAdapter(
     config.weaviate.host,
     config.weaviate.port,
     config.weaviate.className
   );
 
-  const embeddingService = new EmbeddingService(embeddingProvider);
-  const queryService = new QueryService(embeddingService, vectorStore);
+  const queryService = new QueryService(vectorStore);
 
   // Initialize query service
   await queryService.initialize();
 
   // Decorate fastify with shared services
-  fastify.decorate('embeddingService', embeddingService);
   fastify.decorate('queryService', queryService);
   fastify.decorate('vectorStore', vectorStore);
-  fastify.decorate('embeddingProvider', embeddingProvider);
 
   // Register API routes under /api prefix
   fastify.register(indexRoutes, { prefix: '/api/index' });
