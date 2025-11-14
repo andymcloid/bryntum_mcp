@@ -86,59 +86,43 @@ export function createMCPServer(queryService, vectorStore) {
     }
   );
 
-  // Tool: search_examples
+  // Tool: install_instructions
   server.tool(
-    'search_examples',
-    'Search specifically for code examples in Bryntum documentation.',
-    {
-      query: z.string().describe('The search query'),
-      limit: z.number().min(1).max(50).default(5).describe('Maximum number of results to return (1-50)'),
-      version: z.string().optional().describe('Documentation version to search (defaults to latest)'),
-      product: z.string().optional().describe('Filter by product (grid, scheduler, gantt, etc.)'),
-      framework: z.string().optional().describe('Filter by framework (react, angular, vue, vanilla)'),
-    },
-    async ({ query, limit = 5, version, product, framework }) => {
-      logger.info({ tool: 'search_examples', query, limit }, 'Executing MCP tool');
+    'install_instructions',
+    'Get installation instructions for Bryntum trial versions. Returns npm install commands with the latest available version.',
+    {},
+    async () => {
+      logger.info({ tool: 'install_instructions' }, 'Executing MCP tool');
 
       try {
-        if (!query || typeof query !== 'string') {
-          throw new Error('Query is required and must be a string');
+        // Get latest version from database
+        const latestVersion = await vectorStore.getLatestVersion();
+
+        // Read installation instructions file
+        const fs = await import('fs/promises');
+        const path = await import('path');
+        const { fileURLToPath } = await import('url');
+        const __filename = fileURLToPath(import.meta.url);
+        const __dirname = path.dirname(__filename);
+
+        const instructionsPath = path.join(__dirname, '../installation_instructions.md');
+        let instructions = await fs.readFile(instructionsPath, 'utf-8');
+
+        // Replace {version} placeholder with latest version
+        if (latestVersion) {
+          instructions = instructions.replace(/\{version\}/g, latestVersion);
         }
-
-        const filter = { type: 'example' };
-        if (product) filter.product = product;
-        if (framework) filter.framework = framework;
-
-        const results = await queryService.search(query, {
-          limit: Math.min(Math.max(limit, 1), 50),
-          filter,
-          version,
-        });
 
         return {
           content: [
             {
               type: 'text',
-              text: JSON.stringify(
-                {
-                  query,
-                  version: results[0]?.metadata?.version || version,
-                  count: results.length,
-                  results: results.map((r) => ({
-                    id: r.id,
-                    text: r.text,
-                    score: r.score,
-                    metadata: r.metadata,
-                  })),
-                },
-                null,
-                2
-              ),
+              text: instructions,
             },
           ],
         };
       } catch (error) {
-        logger.error({ error: error.message, tool: 'search_examples' }, 'Tool execution failed');
+        logger.error({ error: error.message, tool: 'install_instructions' }, 'Tool execution failed');
         throw error;
       }
     }
@@ -279,6 +263,135 @@ export function createMCPServer(queryService, vectorStore) {
     }
   );
 
+  // Tool: list_products
+  server.tool(
+    'list_products',
+    'List all available Bryntum products in the database (grid, scheduler, gantt, etc.).',
+    {},
+    async () => {
+      logger.info({ tool: 'list_products' }, 'Executing MCP tool');
+
+      try {
+        const tags = await vectorStore.getAllTags();
+
+        // Extract products from tags
+        const products = new Set();
+        const knownProducts = ['grid', 'scheduler', 'schedulerpro', 'gantt', 'calendar', 'taskboard'];
+
+        tags.forEach(tag => {
+          const tagLower = tag.toLowerCase();
+          knownProducts.forEach(p => {
+            if (tagLower.includes(p)) products.add(p);
+          });
+        });
+
+        const productList = Array.from(products).sort();
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  products: productList,
+                  count: productList.length,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      } catch (error) {
+        logger.error({ error: error.message, tool: 'list_products' }, 'Tool execution failed');
+        throw error;
+      }
+    }
+  );
+
+  // Tool: list_frameworks
+  server.tool(
+    'list_frameworks',
+    'List all available frameworks in the database (react, angular, vue, vanilla).',
+    {},
+    async () => {
+      logger.info({ tool: 'list_frameworks' }, 'Executing MCP tool');
+
+      try {
+        const tags = await vectorStore.getAllTags();
+
+        // Extract frameworks from tags
+        const frameworks = new Set();
+        const knownFrameworks = ['react', 'angular', 'vue', 'vanilla'];
+
+        tags.forEach(tag => {
+          const tagLower = tag.toLowerCase();
+          knownFrameworks.forEach(f => {
+            if (tagLower.includes(f)) frameworks.add(f);
+          });
+        });
+
+        const frameworkList = Array.from(frameworks).sort();
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  frameworks: frameworkList,
+                  count: frameworkList.length,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      } catch (error) {
+        logger.error({ error: error.message, tool: 'list_frameworks' }, 'Tool execution failed');
+        throw error;
+      }
+    }
+  );
+
+  // Tool: list_tags
+  server.tool(
+    'list_tags',
+    'List all available tags in the database. Tags represent folders, categories, and metadata.',
+    {
+      limit: z.number().min(1).max(500).default(100).describe('Maximum number of tags to return (1-500)'),
+    },
+    async ({ limit = 100 }) => {
+      logger.info({ tool: 'list_tags', limit }, 'Executing MCP tool');
+
+      try {
+        const allTags = await vectorStore.getAllTags();
+        const tags = allTags.slice(0, limit);
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  tags,
+                  totalCount: allTags.length,
+                  returnedCount: tags.length,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      } catch (error) {
+        logger.error({ error: error.message, tool: 'list_tags' }, 'Tool execution failed');
+        throw error;
+      }
+    }
+  );
+
   return server;
 }
 
@@ -375,7 +488,16 @@ export async function connectMCPTransport(fastify, queryService, vectorStore) {
       transport: 'SSE',
       authentication: 'None (open access)',
       endpoint: '/mcp',
-      tools: ['search_docs', 'search_examples', 'get_doc', 'get_full_document', 'list_versions'],
+      tools: [
+        'search_docs',
+        'install_instructions',
+        'get_doc',
+        'get_full_document',
+        'list_versions',
+        'list_products',
+        'list_frameworks',
+        'list_tags'
+      ],
     };
   });
 }

@@ -59,8 +59,8 @@ export class HomePage extends Component {
                 <div style="background-color: var(--surface); border-radius: var(--radius); padding: 1.5rem;">
                     <h2 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 1rem;">MCP Connection</h2>
                     <p style="color: var(--text-secondary); margin-bottom: 1rem;">
-                        Connect Claude Desktop to this RAG server using Model Context Protocol (MCP).
-                        Add the following configuration to your <code>claude_desktop_config.json</code>:
+                        Connect Claude Code to this RAG server using Model Context Protocol (MCP).
+                        Add the following configuration to your <code>.mcp.json</code> file:
                     </p>
 
                     <div style="background-color: var(--background); border-radius: var(--radius); padding: 1rem; margin-bottom: 1rem; font-family: 'Courier New', monospace; font-size: 0.875rem; overflow-x: auto;">
@@ -78,7 +78,17 @@ export class HomePage extends Component {
                         <p style="margin-bottom: 0.5rem;"><strong>MCP Endpoint:</strong> <code>GET/POST ${mcpUrl}</code></p>
                         <p style="margin-bottom: 0.5rem;"><strong>Transport:</strong> SSE (Server-Sent Events)</p>
                         <p style="margin-bottom: 0.5rem;"><strong>Authentication:</strong> None (open access)</p>
-                        <p><strong>Available Tools:</strong> search_docs, search_examples, get_doc, get_full_document, list_versions</p>
+                        <p style="margin-bottom: 0.75rem;"><strong>Available Tools:</strong></p>
+                        <ul style="list-style: disc; list-style-position: inside; padding-left: 0.5rem; line-height: 1.8;">
+                            <li><code>search_docs</code> - Search documentation with semantic similarity</li>
+                            <li><code>install_instructions</code> - Get npm install commands for Bryntum trial versions</li>
+                            <li><code>get_doc</code> - Get a specific document chunk by ID</li>
+                            <li><code>get_full_document</code> - Get complete document (all chunks)</li>
+                            <li><code>list_versions</code> - List all available documentation versions</li>
+                            <li><code>list_products</code> - List all Bryntum products in database</li>
+                            <li><code>list_frameworks</code> - List all available frameworks</li>
+                            <li><code>list_tags</code> - List all tags/categories</li>
+                        </ul>
                     </div>
                 </div>
             </div>
