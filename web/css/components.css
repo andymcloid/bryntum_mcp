@@ -317,3 +317,227 @@
     color: var(--text-secondary);
     margin-top: 0.25rem;
 }
+
+/* Demo Page Styles */
+.demo-header-section {
+    margin-bottom: 2rem;
+}
+
+/* Status Overlay */
+.demo-status-overlay {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    padding: 2rem;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+}
+
+.demo-status-overlay.visible {
+    opacity: 1;
+    pointer-events: all;
+}
+
+.demo-status-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+}
+
+.demo-status-content span {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+/* Demo Tabs */
+.demo-tabs {
+    display: flex;
+    gap: 0.5rem;
+    padding: 1rem 1rem 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.demo-tab {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: -1px;
+}
+
+.demo-tab:hover {
+    color: var(--text-primary);
+    background: var(--surface);
+}
+
+.demo-tab.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+}
+
+.demo-tab svg {
+    width: 16px;
+    height: 16px;
+}
+
+.demo-tab-content {
+    display: none;
+    min-height: 500px;
+    max-height: 600px;
+}
+
+.demo-tab-content.active {
+    display: block;
+}
+
+.preview-container {
+    overflow: auto;
+    background: white;
+    height: 100%;
+}
+
+.code-editor {
+    height: 100%;
+    overflow: hidden;
+}
+
+.CodeMirror {
+    height: 100% !important;
+    font-size: 0.875rem;
+    background: white !important;
+}
+
+.CodeMirror-gutters {
+    background: var(--surface) !important;
+    border-right: 1px solid var(--border) !important;
+}
+
+.CodeMirror-linenumber {
+    color: var(--text-secondary) !important;
+}
+
+.demo-prompt-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.demo-prompt-input {
+    resize: vertical;
+    font-family: inherit;
+}
+
+/* Debug Section */
+.debug-section {
+    border-top: 1px solid var(--border);
+    padding-top: 1.5rem;
+}
+
+.debug-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.debug-header:hover {
+    background: #e8eef7;
+}
+
+.debug-content {
+    margin-top: 1rem;
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+.debug-step {
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+}
+
+.debug-step-header {
+    font-weight: 600;
+    color: var(--primary);
+    margin-bottom: 0.75rem;
+    font-size: 0.9375rem;
+}
+
+.debug-code {
+    background: white;
+    border: 1px solid var(--border);
+    padding: 0.75rem;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.8125rem;
+    overflow-x: auto;
+    color: var(--text-primary);
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.debug-rag-result {
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.debug-rag-result:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.debug-info {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+.error-message {
+    background: #f44336;
+    color: white;
+    padding: 0.75rem;
+    margin: 0.75rem;
+    border-radius: 4px;
+    font-size: 0.8125rem;
+}
+
+.loading-spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #007acc;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-left: 0.5rem;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
