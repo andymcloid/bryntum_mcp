@@ -25,18 +25,26 @@ export default async function generateRoutes(fastify, options) {
    */
   fastify.post('/generate-grid', async (request, reply) => {
     try {
-      const { prompt, currentCode } = request.body;
+      const { prompt, files } = request.body;
 
       if (!prompt) {
         return reply.code(400).send({ error: 'Prompt is required' });
       }
 
-      logger.info({ prompt: prompt.substring(0, 100) }, 'Generating grid code with MCP search');
+      if (!files || typeof files !== 'object') {
+        return reply.code(400).send({ error: 'Files object is required' });
+      }
 
-      // Step 1: Search for relevant documentation using MCP
+      const demoJs = files['demo.js'] || '';
+      const dataJson = files['data.json'] || '[]';
+      const styleCSS = files['style.css'] || '';
+      const importsJs = files['imports.js'] || '';
+
+      logger.info({ prompt: prompt.substring(0, 100) }, 'Generating component code with MCP search');
+
+      // Step 1: Search for relevant documentation using MCP (no product filter - all components)
       const searchResults = await queryService.search(prompt, {
         limit: 3,
-        filter: { product: 'grid' },
       });
 
       // Format documentation for prompt
@@ -47,31 +55,68 @@ export default async function generateRoutes(fastify, options) {
         .join('\n---\n\n');
 
       // Step 2: Create base prompt for code generation
-      const basePrompt = `You are an expert on Bryntum Grid. Your task is to generate JavaScript code for Bryntum Grid based on the user's requirements.
+      const basePrompt = `You are an expert on Bryntum components (Grid, Scheduler, Gantt, TaskBoard, etc.). Your task is to generate code based on the user's requirements.
 
-## IMPORTANT RULES:
-1. Return ONLY pure JavaScript code without markdown formatting
-2. ALWAYS include data separately as a const data = [...]
-3. Create at least 12 data rows unless otherwise specified
-4. Use Grid configuration according to the documentation below
-5. Code must run directly in the editor without modifications
+## AVAILABLE COMPONENTS:
+All Bryntum components are pre-loaded and available:
+- Grid, Scheduler, SchedulerPro, Gantt, TaskBoard
+${importsJs}
 
-## Response Format:
-\`\`\`javascript
-// Grid data
-const data = [
-  { id: 1, ... },
-  // ...at least 12 rows
-];
+## FILE STRUCTURE:
+The project has 4 files:
+1. **demo.js** - Component instantiation code (e.g., new Grid({...}))
+2. **data.json** - JSON data array (becomes available as 'data' variable in demo.js)
+3. **style.css** - Custom CSS styles (optional)
+4. **imports.js** - READ-ONLY, shows available components (do not modify)
 
-// Grid configuration
+## CRITICAL: RESPONSE FORMAT - YOU MUST FOLLOW THIS EXACTLY:
+
+You MUST respond with tagged sections for ONLY the files you want to change.
+Do NOT return files that don't need changes - only return what you modified.
+
+AVAILABLE FILES TO MODIFY:
+- [demo.js]...[/demo.js] - Component code
+- [data.json]...[/data.json] - JSON data
+- [style.css]...[/style.css] - Custom CSS
+
+EXAMPLE - If only changing data:
+[data.json]
+[
+  { "id": 1, "name": "Example", ... },
+  { "id": 2, "name": "Example 2", ... }
+]
+[/data.json]
+
+EXAMPLE - If changing both demo and data:
+[demo.js]
 new Grid({
   appendTo : 'preview-container',
-  height   : 500,
+  height   : '100%',
   columns  : [...],
   data     : data
 });
-\`\`\`
+[/demo.js]
+
+[data.json]
+[
+  { "id": 1, "name": "Example", ... }
+]
+[/data.json]
+
+EXAMPLE - If only adding CSS:
+[style.css]
+.b-grid-header {
+  background: #f0f0f0;
+}
+[/style.css]
+
+## RULES:
+1. ONLY return tags for files you are modifying
+2. Do NOT use markdown code blocks (\`\`\`javascript, \`\`\`json, etc.)
+3. In demo.js, reference 'data' variable (it comes from data.json)
+4. In data.json, provide valid JSON array (at least 12 rows unless specified)
+5. Use appendTo: 'preview-container' for all components
+6. Code must run directly without modifications
 
 ## DOCUMENTATION FROM RAG (relevant to your task):
 
@@ -80,19 +125,33 @@ ${docsContext}
 ---`;
 
       // Step 3: Build messages for Claude
+      const currentFilesContext = `CURRENT FILES:
+
+[demo.js]
+${demoJs}
+[/demo.js]
+
+[data.json]
+${dataJson}
+[/data.json]
+
+[style.css]
+${styleCSS}
+[/style.css]`;
+
       const messages = [
         {
           role: 'user',
           content: `${basePrompt}
 
-CURRENT CODE IN EDITOR:
-\`\`\`javascript
-${currentCode}
-\`\`\`
+${currentFilesContext}
 
 USER'S REQUEST: ${prompt}
 
-Based on the documentation above and the user's request, return the updated JavaScript code.`,
+Based on the documentation above and the user's request, return ONLY the files you need to modify using the tagged format.
+If you only need to change CSS, return only [style.css]...[/style.css].
+If you only need to change data, return only [data.json]...[/data.json].
+Return multiple files only if multiple files need changes.`,
         },
       ];
 
@@ -104,18 +163,59 @@ Based on the documentation above and the user's request, return the updated Java
       });
 
       // Step 5: Extract code from response
-      let code = message.content.find((content) => content.type === 'text')?.text || '';
+      let rawResponse = message.content.find((content) => content.type === 'text')?.text || '';
 
-      // Clean up code - remove markdown formatting
-      code = code.replace(/```javascript\n?/g, '');
-      code = code.replace(/```js\n?/g, '');
-      code = code.replace(/```\n?/g, '');
-      code = code.trim();
+      // Parse tagged files from response
+      const extractFile = (text, filename) => {
+        const pattern = new RegExp(`\\[${filename.replace('.', '\\.')}\\]([\\s\\S]*?)\\[\\/${filename.replace('.', '\\.')}\\]`, 'i');
+        const match = text.match(pattern);
+        if (match) {
+          let content = match[1].trim();
+          // Remove markdown code blocks if present
+          content = content.replace(/```(?:javascript|js|json|css)?\n?/g, '');
+          content = content.replace(/```\n?/g, '');
+          return content;
+        }
+        return null;
+      };
 
-      logger.info({ codeLength: code.length }, 'Code generated successfully');
+      const extractedFiles = {
+        'demo.js': extractFile(rawResponse, 'demo.js'),
+        'data.json': extractFile(rawResponse, 'data.json'),
+        'style.css': extractFile(rawResponse, 'style.css'),
+      };
+
+      // Remove null values
+      const responseFiles = {};
+      for (const [key, value] of Object.entries(extractedFiles)) {
+        if (value !== null) {
+          responseFiles[key] = value;
+        }
+      }
+
+      // Validation: At least ONE file must be returned
+      if (Object.keys(responseFiles).length === 0) {
+        logger.error(
+          {
+            rawResponse: rawResponse.substring(0, 500)
+          },
+          'AI did not respond with any tagged files'
+        );
+
+        return reply.code(500).send({
+          error: 'AI response format error',
+          message: 'AI did not respond with any file tags ([demo.js], [data.json], or [style.css]). Please try again.',
+          debug: {
+            userPrompt: prompt,
+            rawResponse: rawResponse
+          }
+        });
+      }
+
+      logger.info({ filesExtracted: Object.keys(responseFiles) }, 'Code generated successfully');
 
       return reply.send({
-        code: code,
+        files: responseFiles,
         debug: {
           userPrompt: prompt,
           searchQuery: prompt,
@@ -128,7 +228,7 @@ Based on the documentation above and the user's request, return the updated Java
           docsContext: docsContext,
           fullPrompt: messages[0].content,
           claudeModel: 'claude-sonnet-4-20250514',
-          rawResponse: message.content.find((content) => content.type === 'text')?.text,
+          rawResponse: rawResponse,
           tokensUsed: {
             input: message.usage?.input_tokens || 0,
             output: message.usage?.output_tokens || 0,

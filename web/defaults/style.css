@@ -1,0 +1,11 @@
+/* Custom styles for your component */
+
+/* Example: Change header background */
+.b-grid-header {
+    /* background: linear-gradient(to right, #667eea 0%, #764ba2 100%); */
+}
+
+/* Example: Customize row styling */
+.b-grid-row {
+    /* Add your custom styles here */
+}

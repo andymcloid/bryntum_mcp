@@ -1,0 +1,12 @@
+[
+    { "id": 1, "name": "Don A Taylor", "age": 30, "city": "Moscow", "food": "Salad", "color": "Black" },
+    { "id": 2, "name": "John B Adams", "age": 65, "city": "Paris", "food": "Bolognese", "color": "Orange" },
+    { "id": 3, "name": "John Doe", "age": 40, "city": "London", "food": "Fish and Chips", "color": "Blue" },
+    { "id": 4, "name": "Maria Garcia", "age": 28, "city": "Madrid", "food": "Paella", "color": "Green" },
+    { "id": 5, "name": "Li Wei", "age": 35, "city": "Beijing", "food": "Dumplings", "color": "Yellow" },
+    { "id": 6, "name": "Sara Johnson", "age": 32, "city": "Sydney", "food": "Sushi", "color": "Purple" },
+    { "id": 7, "name": "Lucas Brown", "age": 22, "city": "Toronto", "food": "Poutine", "color": "Orange" },
+    { "id": 8, "name": "Emma Wilson", "age": 27, "city": "Paris", "food": "Croissant", "color": "Pink" },
+    { "id": 9, "name": "Ivan Petrov", "age": 45, "city": "St. Petersburg", "food": "Borscht", "color": "Grey" },
+    { "id": 10, "name": "Zhang Ming", "age": 50, "city": "Shanghai", "food": "Hot Pot", "color": "Purple" }
+]

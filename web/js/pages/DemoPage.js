@@ -1,26 +1,37 @@
 /**
  * Demo Page Component
  *
- * Live Bryntum Grid code editor with AI assistance using MCP search
+ * Live Bryntum component editor with AI assistance using MCP search
+ * Supports: Grid, Scheduler, Scheduler Pro, Gantt, Taskboard
  */
 import { Component } from '../components/Component.js';
 
 export class DemoPage extends Component {
     constructor() {
         super();
-        this.editor = null;
-        this.currentGrid = null;
+        this.editors = {
+            'data.json': null,
+            'style.css': null,
+            'imports.js': null,
+            'demo.js': null
+        };
+        this.currentFile = 'demo.js';
+        this.currentComponent = null;
         this.refreshTimeout = null;
         this.debugExpanded = true;
+        this.loadedComponents = []; // Track which components were loaded
+        this.bryntumLoaded = false; // Prevent multiple loads
+        this.filesLoaded = false; // Track if all files are loaded
+        this.programmaticChange = false; // Flag for programmatic changes
     }
 
     async render() {
         const content = `
             <div class="fade-in">
                 <div class="demo-header-section">
-                    <h1 style="font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem;">Live Bryntum Grid Demo</h1>
+                    <h1 style="font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem;">Live Bryntum Component Demo</h1>
                     <p style="color: var(--text-secondary);">
-                        Interactive code editor with AI assistance powered by MCP
+                        Interactive code editor with AI assistance - supports Grid, Scheduler, Gantt, Taskboard & more
                     </p>
                 </div>
 
@@ -47,6 +58,12 @@ export class DemoPage extends Component {
                             </svg>
                             Code
                         </button>
+                        <button class="demo-tab-reset" id="reset-btn" title="Reset to defaults">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                            </svg>
+                            Reset
+                        </button>
                     </div>
 
                     <div class="demo-tab-content active" id="preview-tab">
@@ -54,6 +71,12 @@ export class DemoPage extends Component {
                     </div>
 
                     <div class="demo-tab-content" id="code-tab">
+                        <div class="file-tabs" style="display: flex; gap: 0.5rem; padding: 0.75rem 1rem; background: var(--surface); border-bottom: 1px solid var(--border);">
+                            <button class="file-tab active" data-file="demo.js">📄 demo.js</button>
+                            <button class="file-tab" data-file="data.json">📊 data.json</button>
+                            <button class="file-tab" data-file="style.css">🎨 style.css</button>
+                            <button class="file-tab" data-file="imports.js">🔒 imports.js</button>
+                        </div>
                         <div id="code-editor" class="code-editor"></div>
                     </div>
                 </div>
@@ -105,20 +128,20 @@ export class DemoPage extends Component {
         // Load CodeMirror dynamically
         await this.loadCodeMirror();
 
-        // Initialize CodeMirror
-        this.initializeEditor();
+        // Initialize CodeMirror (async - loads files)
+        await this.initializeEditor();
 
         // Set up event listeners
         this.setupEventListeners();
 
-        // Initial render
-        await this.renderGrid();
+        // Initial render (now files are loaded)
+        await this.renderComponent();
     }
 
     unmount() {
         // Clean up
-        if (this.currentGrid) {
-            this.currentGrid.destroy();
+        if (this.currentComponent) {
+            this.currentComponent.destroy();
         }
         if (this.editor) {
             this.editor.toTextArea();
@@ -133,9 +156,10 @@ export class DemoPage extends Component {
         cssLink.href = 'https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css';
         document.head.appendChild(cssLink);
 
-        // Load CodeMirror JS
+        // Load CodeMirror JS and modes
         await this.loadScript('https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js');
         await this.loadScript('https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/javascript/javascript.min.js');
+        await this.loadScript('https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/css/css.min.js');
     }
 
     loadScript(src) {
@@ -148,22 +172,58 @@ export class DemoPage extends Component {
         });
     }
 
-    initializeEditor() {
-        const initialCode = this.getInitialCode();
+    async initializeEditor() {
+        const container = document.getElementById('code-editor');
 
-        this.editor = CodeMirror(document.getElementById('code-editor'), {
-            value: initialCode,
-            mode: 'javascript',
+        // Load file contents from localStorage or defaults
+        await this.loadFileContents();
+
+        const modes = {
+            'demo.js': 'javascript',
+            'data.json': 'javascript',
+            'style.css': 'css',
+            'imports.js': 'javascript'
+        };
+
+        // Create single editor that we'll swap content for
+        // Set programmaticChange flag during initialization
+        this.programmaticChange = true;
+
+        this.editor = CodeMirror(container, {
+            value: this.fileContents['demo.js'],
+            mode: modes['demo.js'],
             theme: 'default',
             lineNumbers: true,
             lineWrapping: true,
             indentUnit: 4,
             tabSize: 4,
-            indentWithTabs: false
+            indentWithTabs: false,
+            readOnly: false
         });
+
+        // Reset flag after initialization
+        setTimeout(() => {
+            this.programmaticChange = false;
+        }, 50);
 
         // Handle code changes
         this.editor.on('change', () => {
+            // Ignore programmatic changes (like switching tabs)
+            if (this.programmaticChange) {
+                return;
+            }
+
+            // Don't render until all files are loaded
+            if (!this.filesLoaded) {
+                return;
+            }
+
+            // Save current file content
+            this.fileContents[this.currentFile] = this.editor.getValue();
+
+            // Save to localStorage
+            this.saveFileContents();
+
             this.clearRefreshTimeout();
 
             this.refreshTimeout = setTimeout(() => {
@@ -171,29 +231,86 @@ export class DemoPage extends Component {
                     this.updateStatus('Rendering...', true);
                 }
 
-                this.renderGrid();
+                this.renderComponent();
             }, 1000);
         });
     }
 
-    getInitialCode() {
-        const gridData = [
-            { id: 1, name: 'Don A Taylor', age: 30, city: 'Moscow', food: 'Salad', color: 'Black' },
-            { id: 2, name: 'John B Adams', age: 65, city: 'Paris', food: 'Bolognese', color: 'Orange' },
-            { id: 3, name: 'John Doe', age: 40, city: 'London', food: 'Fish and Chips', color: 'Blue' },
-            { id: 4, name: 'Maria Garcia', age: 28, city: 'Madrid', food: 'Paella', color: 'Green' },
-            { id: 5, name: 'Li Wei', age: 35, city: 'Beijing', food: 'Dumplings', color: 'Yellow' },
-            { id: 6, name: 'Sara Johnson', age: 32, city: 'Sydney', food: 'Sushi', color: 'Purple' },
-            { id: 7, name: 'Lucas Brown', age: 22, city: 'Toronto', food: 'Poutine', color: 'Orange' },
-            { id: 8, name: 'Emma Wilson', age: 27, city: 'Paris', food: 'Croissant', color: 'Pink' },
-            { id: 9, name: 'Ivan Petrov', age: 45, city: 'St. Petersburg', food: 'Borscht', color: 'Grey' },
-            { id: 10, name: 'Zhang Ming', age: 50, city: 'Shanghai', food: 'Hot Pot', color: 'Purple' }
-        ];
+    async loadFileContents() {
+        const files = ['demo.js', 'data.json', 'style.css', 'imports.js'];
+        this.fileContents = {};
 
-        return `// Grid data
-const data = ${JSON.stringify(gridData, null, 4)};
+        for (const filename of files) {
+            // Try localStorage first
+            const stored = localStorage.getItem(`bryntum-demo-${filename}`);
 
-// Grid configuration
+            if (stored !== null) {
+                this.fileContents[filename] = stored;
+            } else {
+                // Load from defaults
+                try {
+                    const response = await fetch(`/defaults/${filename}`);
+                    if (response.ok) {
+                        this.fileContents[filename] = await response.text();
+                    } else {
+                        // Fallback to hardcoded defaults
+                        this.fileContents[filename] = this.getHardcodedDefault(filename);
+                    }
+                } catch (error) {
+                    console.error(`Failed to load default for ${filename}:`, error);
+                    this.fileContents[filename] = this.getHardcodedDefault(filename);
+                }
+            }
+        }
+
+        // Mark files as loaded
+        this.filesLoaded = true;
+        console.log('All files loaded successfully');
+    }
+
+    saveFileContents() {
+        const files = ['demo.js', 'data.json', 'style.css'];
+        for (const filename of files) {
+            if (this.fileContents[filename] !== undefined) {
+                localStorage.setItem(`bryntum-demo-${filename}`, this.fileContents[filename]);
+            }
+        }
+        // Don't save imports.js as it's read-only
+    }
+
+    async resetToDefaults() {
+        if (!confirm('Reset all files to defaults? This will reload the page to apply changes.')) {
+            return;
+        }
+
+        // Clear localStorage
+        localStorage.removeItem('bryntum-demo-demo.js');
+        localStorage.removeItem('bryntum-demo-data.json');
+        localStorage.removeItem('bryntum-demo-style.css');
+
+        // Reload the page to reset everything including Bryntum components
+        // (ES6 modules cannot be unloaded, so we need a full page refresh)
+        window.location.reload();
+    }
+
+    getHardcodedDefault(filename) {
+        // Fallback defaults if fetch fails
+        switch (filename) {
+            case 'demo.js':
+                return this.getInitialDemoCode();
+            case 'data.json':
+                return this.getInitialDataCode();
+            case 'style.css':
+                return this.getInitialStyleCode();
+            case 'imports.js':
+                return this.getImportsCode();
+            default:
+                return '';
+        }
+    }
+
+    getInitialDemoCode() {
+        return `// Grid configuration
 new Grid({
     height   : '100%',
     appendTo : 'preview-container',
@@ -230,16 +347,75 @@ new Grid({
 });`;
     }
 
-    async renderGrid() {
+    getInitialDataCode() {
+        const gridData = [
+            { id: 1, name: 'Don A Taylor', age: 30, city: 'Moscow', food: 'Salad', color: 'Black' },
+            { id: 2, name: 'John B Adams', age: 65, city: 'Paris', food: 'Bolognese', color: 'Orange' },
+            { id: 3, name: 'John Doe', age: 40, city: 'London', food: 'Fish and Chips', color: 'Blue' },
+            { id: 4, name: 'Maria Garcia', age: 28, city: 'Madrid', food: 'Paella', color: 'Green' },
+            { id: 5, name: 'Li Wei', age: 35, city: 'Beijing', food: 'Dumplings', color: 'Yellow' },
+            { id: 6, name: 'Sara Johnson', age: 32, city: 'Sydney', food: 'Sushi', color: 'Purple' },
+            { id: 7, name: 'Lucas Brown', age: 22, city: 'Toronto', food: 'Poutine', color: 'Orange' },
+            { id: 8, name: 'Emma Wilson', age: 27, city: 'Paris', food: 'Croissant', color: 'Pink' },
+            { id: 9, name: 'Ivan Petrov', age: 45, city: 'St. Petersburg', food: 'Borscht', color: 'Grey' },
+            { id: 10, name: 'Zhang Ming', age: 50, city: 'Shanghai', food: 'Hot Pot', color: 'Purple' }
+        ];
+
+        return JSON.stringify(gridData, null, 4);
+    }
+
+    getInitialStyleCode() {
+        return `/* Custom styles for your component */
+
+/* Example: Change header background */
+.b-grid-header {
+    /* background: linear-gradient(to right, #667eea 0%, #764ba2 100%); */
+}
+
+/* Example: Customize row styling */
+.b-grid-row {
+    /* Add your custom styles here */
+}`;
+    }
+
+    getImportsCode() {
+        return `// Bryntum Imports Configuration
+// List all CSS and JS files to load.
+// All exports from JS modules will be auto-detected and exposed globally.
+//
+// NOTE: After modifying this file, you must:
+// 1. Click "Reset" button in the demo page, OR
+// 2. Refresh the browser (F5)
+// (ES6 modules cannot be unloaded at runtime)
+
+const IMPORTS = [
+    { css: 'https://bryntum.com/products/grid/build/grid.stockholm.css' },
+    { js: 'https://bryntum.com/products/grid/build/grid.module.js' }
+
+    // Example: Load multiple CSS first, then JS
+    // { css: 'https://bryntum.com/products/grid/build/grid.stockholm.css' },
+    // { css: 'https://bryntum.com/products/scheduler/build/scheduler.stockholm.css' },
+    // { css: 'https://bryntum.com/products/gantt/build/gantt.stockholm.css' },
+    // { js: 'https://bryntum.com/products/gantt/build/gantt.module.js' }
+];`;
+    }
+
+    async renderComponent() {
         try {
-            // Load Bryntum if not already loaded
-            if (!window.Grid) {
+            // Don't render until all files are loaded
+            if (!this.filesLoaded) {
+                console.log('Files not yet loaded, skipping render');
+                return;
+            }
+
+            // Load Bryntum components if not already loaded
+            if (!this.bryntumLoaded) {
                 await this.loadBryntum();
             }
 
-            // Clear previous grid
-            if (this.currentGrid) {
-                this.currentGrid.destroy();
+            // Clear previous component
+            if (this.currentComponent) {
+                this.currentComponent.destroy();
             }
 
             // Clear container
@@ -251,20 +427,56 @@ new Grid({
 
             container.innerHTML = '';
 
-            // Execute the code
-            const code = this.editor.getValue();
-            const func = new Function('Grid', code);
-            func(window.Grid);
+            // Remove old custom styles
+            const oldStyle = document.getElementById('demo-custom-styles');
+            if (oldStyle) oldStyle.remove();
 
-            // Store reference to the grid
-            const gridEl = container.querySelector('.b-grid');
-            if (gridEl && gridEl._domData && gridEl._domData.ownerCmp) {
-                this.currentGrid = gridEl._domData.ownerCmp;
+            // Inject custom CSS
+            const customCSS = this.fileContents['style.css'] || '';
+            if (customCSS.trim()) {
+                const styleEl = document.createElement('style');
+                styleEl.id = 'demo-custom-styles';
+                styleEl.textContent = customCSS;
+                document.head.appendChild(styleEl);
+            }
+
+            // Parse data.json
+            let data;
+            try {
+                const dataContent = this.fileContents['data.json'] || '[]';
+                data = JSON.parse(dataContent);
+            } catch (error) {
+                console.error('Error parsing data.json:', error);
+                data = [];
+            }
+
+            // Execute demo.js with all available Bryntum components and data
+            const demoCode = this.fileContents['demo.js'] || '';
+
+            // Use dynamically loaded components
+            const componentNames = this.loadedComponents.length > 0
+                ? this.loadedComponents
+                : ['Grid', 'Scheduler', 'SchedulerPro', 'Gantt', 'TaskBoard'];
+
+            const componentValues = componentNames.map(name => window[name]);
+
+            // Create function with dynamic parameters
+            const func = new Function(...componentNames, 'data', demoCode);
+            func(...componentValues, data);
+
+            // Store reference to the component (try all possible selectors)
+            const componentSelectors = ['.b-grid', '.b-scheduler', '.b-schedulerpro', '.b-gantt', '.b-taskboard'];
+            for (const selector of componentSelectors) {
+                const el = container.querySelector(selector);
+                if (el && el._domData && el._domData.ownerCmp) {
+                    this.currentComponent = el._domData.ownerCmp;
+                    break;
+                }
             }
 
             this.updateStatus('Rendered successfully');
         } catch (error) {
-            console.error('Error rendering grid:', error);
+            console.error('Error rendering component:', error);
             const container = document.getElementById('preview-container');
             if (container) {
                 container.innerHTML = `<div class="error-message">Error: ${error.message}</div>`;
@@ -274,15 +486,70 @@ new Grid({
     }
 
     async loadBryntum() {
-        // Load Bryntum CSS
-        const cssLink = document.createElement('link');
-        cssLink.rel = 'stylesheet';
-        cssLink.href = 'https://bryntum.com/products/grid/build/grid.stockholm.css';
-        document.head.appendChild(cssLink);
+        // Prevent multiple loads
+        if (this.bryntumLoaded) {
+            console.log('Bryntum already loaded, skipping...');
+            return;
+        }
 
-        // Load Bryntum Grid module
-        const Grid = await import('https://bryntum.com/products/grid/build/grid.module.js');
-        window.Grid = Grid.Grid;
+        // Parse imports.js to get imports configuration
+        const importsJs = this.fileContents['imports.js'];
+
+        // Extract IMPORTS array from imports.js
+        let imports;
+        try {
+            // Execute imports.js in a safe context to get IMPORTS
+            const func = new Function(importsJs + '\nreturn IMPORTS;');
+            imports = func();
+
+            if (!Array.isArray(imports)) {
+                throw new Error('IMPORTS is not defined or is not an array');
+            }
+        } catch (error) {
+            console.error('Failed to parse imports.js:', error);
+            throw new Error(`imports.js parse error: ${error.message}. Please check your imports.js file syntax.`);
+        }
+
+        // Separate CSS and JS imports
+        const cssImports = imports.filter(item => item.css).map(item => item.css);
+        const jsImports = imports.filter(item => item.js).map(item => item.js);
+
+        console.log('Loading CSS files:', cssImports);
+        console.log('Loading JS modules:', jsImports);
+
+        // Load all CSS files (in order)
+        cssImports.forEach(cssUrl => {
+            const cssLink = document.createElement('link');
+            cssLink.rel = 'stylesheet';
+            cssLink.href = cssUrl;
+            cssLink.dataset.bryntumCss = 'true';
+            document.head.appendChild(cssLink);
+        });
+
+        // Load all JS modules (in parallel)
+        const modulePromises = jsImports.map(jsUrl => import(jsUrl));
+        const modules = await Promise.all(modulePromises);
+
+        // Auto-detect and expose ALL exports from each module
+        const allExports = [];
+        modules.forEach((module, index) => {
+            const moduleUrl = jsImports[index];
+            const exportNames = Object.keys(module);
+
+            console.log(`📦 Module ${moduleUrl} exports:`, exportNames);
+
+            exportNames.forEach(exportName => {
+                // Expose each export globally
+                window[exportName] = module[exportName];
+                allExports.push(exportName);
+            });
+        });
+
+        // Store loaded component names for later use
+        this.loadedComponents = allExports;
+        this.bryntumLoaded = true;
+
+        console.log('✅ Auto-detected and loaded Bryntum exports:', allExports.join(', '));
     }
 
     setupEventListeners() {
@@ -312,6 +579,23 @@ new Grid({
             });
         });
 
+        // File tab switching
+        const fileTabs = document.querySelectorAll('.file-tab');
+        fileTabs.forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                const targetFile = e.currentTarget.dataset.file;
+                this.switchFile(targetFile);
+
+                // Update active file tab
+                fileTabs.forEach(t => t.classList.remove('active'));
+                e.currentTarget.classList.add('active');
+            });
+        });
+
+        // Reset button
+        const resetBtn = document.getElementById('reset-btn');
+        resetBtn.addEventListener('click', () => this.resetToDefaults());
+
         // Generate button
         const generateBtn = document.getElementById('generate-btn');
         const promptInput = document.getElementById('prompt-input');
@@ -327,6 +611,46 @@ new Grid({
         });
     }
 
+    switchFile(filename) {
+        // Don't switch until files are loaded
+        if (!this.filesLoaded) {
+            console.log('Files not yet loaded, skipping file switch');
+            return;
+        }
+
+        // Save current file content
+        this.fileContents[this.currentFile] = this.editor.getValue();
+
+        // Save to localStorage before switching
+        this.saveFileContents();
+
+        // Switch to new file
+        this.currentFile = filename;
+
+        // Update editor content and mode
+        const modes = {
+            'demo.js': 'javascript',
+            'data.json': 'javascript',
+            'style.css': 'css',
+            'imports.js': 'javascript'
+        };
+
+        // Set read-only for imports.js
+        const isReadOnly = filename === 'imports.js';
+
+        // Mark as programmatic change to prevent re-render
+        this.programmaticChange = true;
+
+        this.editor.setOption('mode', modes[filename]);
+        this.editor.setOption('readOnly', isReadOnly);
+        this.editor.setValue(this.fileContents[filename] || '');
+
+        // Reset flag after a brief delay (CodeMirror processes events async)
+        setTimeout(() => {
+            this.programmaticChange = false;
+        }, 50);
+    }
+
 
     async generateWithAI() {
         const promptInput = document.getElementById('prompt-input');
@@ -335,7 +659,8 @@ new Grid({
 
         if (!prompt) return;
 
-        const currentCode = this.editor.getValue();
+        // Save current editor content before generating
+        this.fileContents[this.currentFile] = this.editor.getValue();
 
         generateBtn.disabled = true;
         generateBtn.innerHTML = 'Generating<span class="loading-spinner"></span>';
@@ -352,7 +677,12 @@ new Grid({
                 },
                 body: JSON.stringify({
                     prompt,
-                    currentCode
+                    files: {
+                        'demo.js': this.fileContents['demo.js'],
+                        'data.json': this.fileContents['data.json'],
+                        'style.css': this.fileContents['style.css'],
+                        'imports.js': this.fileContents['imports.js']
+                    }
                 })
             });
 
@@ -362,8 +692,33 @@ new Grid({
 
             const data = await response.json();
 
-            // Update the code editor with the new code
-            this.editor.setValue(data.code);
+            // Check for errors
+            if (data.error) {
+                throw new Error(data.message || data.error);
+            }
+
+            // Validate response has at least one file
+            if (!data.files || Object.keys(data.files).length === 0) {
+                throw new Error('AI did not respond with any file changes. Please try again.');
+            }
+
+            // Update files from AI response (only the ones that were returned)
+            if (data.files['demo.js']) this.fileContents['demo.js'] = data.files['demo.js'];
+            if (data.files['data.json']) this.fileContents['data.json'] = data.files['data.json'];
+            if (data.files['style.css']) this.fileContents['style.css'] = data.files['style.css'];
+            // Note: imports.js is not updated (read-only)
+
+            console.log('Updated files:', Object.keys(data.files).join(', '));
+
+            // Save updated files to localStorage
+            this.saveFileContents();
+
+            // Update current editor view (mark as programmatic to prevent immediate re-render)
+            this.programmaticChange = true;
+            this.editor.setValue(this.fileContents[this.currentFile]);
+            setTimeout(() => {
+                this.programmaticChange = false;
+            }, 50);
 
             // Show debug information
             if (data.debug) {

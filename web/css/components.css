@@ -396,6 +396,31 @@
     height: 16px;
 }
 
+.demo-tab-reset {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-left: auto;
+}
+
+.demo-tab-reset:hover {
+    color: var(--primary);
+    background: var(--surface);
+}
+
+.demo-tab-reset svg {
+    width: 16px;
+    height: 16px;
+}
+
 .demo-tab-content {
     display: none;
     height: 600px;
@@ -403,6 +428,39 @@
 
 .demo-tab-content.active {
     display: block;
+}
+
+/* File Tabs */
+.file-tabs {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+}
+
+.file-tab {
+    padding: 0.5rem 1rem;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius);
+    color: var(--text-secondary);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.file-tab:hover {
+    color: var(--text-primary);
+    background: var(--background);
+    border-color: var(--border);
+}
+
+.file-tab.active {
+    color: var(--primary);
+    background: var(--background);
+    border-color: var(--primary);
 }
 
 .preview-container {
