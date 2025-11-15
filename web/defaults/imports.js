@@ -5,16 +5,25 @@
 
 
 const IMPORTS = [
-    { css: 'https://bryntum.com/products/grid/build/thin/core.stockholm.thin.css' },
-    { css: 'https://bryntum.com/products/grid/build/thin/grid.stockholm.thin.css' },
-    { css: 'https://bryntum.com/products/grid/build/thin/gantt.stockholm.thin.css' },
-    { css: 'https://bryntum.com/products/grid/build/thin/scheduler.stockholm.thin.css' },
-    { css: 'https://bryntum.com/products/grid/build/thin/schedulerpro.stockholm.thin.css' },
-    { css: 'https://bryntum.com/products/grid/build/thin/taskboard.stockholm.thin.css' },
-    { js: 'https://bryntum.com/products/grid/build/thin/core.module.thin.js' },
-    { js: 'https://bryntum.com/products/grid/build/thin/grid.module.thin.js' },
-    { js: 'https://bryntum.com/products/grid/build/thin/gantt.module.thin.js' },
-    { js: 'https://bryntum.com/products/grid/build/thin/scheduler.module.thin.js' },
-    { js: 'https://bryntum.com/products/grid/build/thin/schedulerpro.module.thin.js' },
-    { js: 'https://bryntum.com/products/grid/build/thin/taskboard.module.thin.js' }
+
+
+    
+    { css: 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/fontawesome.min.css' },
+    { css: 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/solid.min.css' },
+
+    { css: 'https://bryntum.com/products/grid-next/build/thin/core.thin.css' },
+    { css: 'https://bryntum.com/products/grid-next/build/thin/grid.thin.css' },
+    { css: 'https://bryntum.com/products/grid-next/build/thin/gantt.thin.css' },
+    { css: 'https://bryntum.com/products/grid-next/build/thin/scheduler.thin.css' },
+    { css: 'https://bryntum.com/products/grid-next/build/thin/schedulerpro.thin.css' },
+    { css: 'https://bryntum.com/products/grid-next/build/thin/taskboard.thin.css' },
+
+    { js: 'https://bryntum.com/products/grid-next/build/thin/core.module.thin.js' },
+    { js: 'https://bryntum.com/products/grid-next/build/thin/grid.module.thin.js' },
+    { js: 'https://bryntum.com/products/grid-next/build/thin/gantt.module.thin.js' },
+    { js: 'https://bryntum.com/products/grid-next/build/thin/scheduler.module.thin.js' },
+    { js: 'https://bryntum.com/products/grid-next/build/thin/schedulerpro.module.thin.js' },
+    { js: 'https://bryntum.com/products/grid-next/build/thin/taskboard.module.thin.js' },
+
+    { css: 'https://bryntum.com/products/grid-next/build/svalbard-light.css' }
 ];

@@ -23,6 +23,7 @@ export class DemoPage extends Component {
         this.filesLoaded = false; // Track if all files are loaded
         this.programmaticChange = false; // Flag for programmatic changes
         this.importsConfig = null; // Store imports.js config (loaded from disk only)
+        this.chatHistory = []; // Store AI chat history
     }
 
     async render() {
@@ -43,7 +44,7 @@ export class DemoPage extends Component {
                     </div>
                 </div>
 
-                <div class="card" style="margin-bottom: 1.5rem;">
+                <div class="card">
                     <div class="demo-tabs">
                         <button class="demo-tab active" data-tab="preview">
                             <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -57,6 +58,12 @@ export class DemoPage extends Component {
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
                             </svg>
                             Code
+                        </button>
+                        <button class="demo-tab" data-tab="ai">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                            </svg>
+                            AI Assistant
                         </button>
                         <button class="demo-tab-reset" id="reset-btn" title="Reset to defaults">
                             <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -78,34 +85,33 @@ export class DemoPage extends Component {
                         </div>
                         <div id="code-editor" class="code-editor"></div>
                     </div>
-                </div>
 
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title">AI Code Generator</h3>
-                        <p class="card-description">Describe what you want to build and let AI generate the code</p>
-                    </div>
-                    <div class="card-content">
-                        <div class="demo-prompt-container">
-                            <textarea
-                                id="prompt-input"
-                                class="input demo-prompt-input"
-                                placeholder="e.g., 'Create a grid with employee data including name, department, salary, and hire date'"
-                                rows="3"
-                            ></textarea>
-                            <button id="generate-btn" class="btn btn-primary" style="align-self: flex-start;">
-                                Generate Code
-                            </button>
-                        </div>
-
-                        <!-- Debug Log Section -->
-                        <div id="debug-section" class="debug-section" style="display: none; margin-top: 1.5rem;">
-                            <div class="debug-header" onclick="window.demoPage?.toggleDebugContent()">
-                                <span style="font-weight: 600; color: var(--text-primary);">🔍 Debug Log (Chain of Thought)</span>
-                                <span id="debug-toggle" style="color: var(--text-secondary);">▼</span>
+                    <div class="demo-tab-content" id="ai-tab">
+                        <div class="ai-chat-container">
+                            <div class="ai-chat-messages" id="ai-chat-messages">
+                                <div class="ai-welcome-message">
+                                    <div class="ai-welcome-icon">
+                                        <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                                        </svg>
+                                    </div>
+                                    <h3>AI Assistant</h3>
+                                    <p>Describe what you want to build and I'll generate the code for you. I can help with Grids, Schedulers, Gantt charts, and more!</p>
+                                </div>
                             </div>
-                            <div id="debug-content" class="debug-content">
-                                <!-- Content will be populated dynamically -->
+                            <div class="ai-chat-input-container">
+                                <textarea
+                                    id="ai-prompt-input"
+                                    class="ai-chat-input"
+                                    placeholder="e.g., 'Create a grid with employee data including name, department, salary, and hire date'"
+                                    rows="3"
+                                ></textarea>
+                                <button id="ai-generate-btn" class="btn btn-primary">
+                                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                                    </svg>
+                                    Send
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -627,19 +633,21 @@ new Grid({
         const resetBtn = document.getElementById('reset-btn');
         resetBtn.addEventListener('click', () => this.resetToDefaults());
 
-        // Generate button
-        const generateBtn = document.getElementById('generate-btn');
-        const promptInput = document.getElementById('prompt-input');
+        // AI Chat - Generate button
+        const aiGenerateBtn = document.getElementById('ai-generate-btn');
+        const aiPromptInput = document.getElementById('ai-prompt-input');
 
-        generateBtn.addEventListener('click', () => this.generateWithAI());
+        if (aiGenerateBtn && aiPromptInput) {
+            aiGenerateBtn.addEventListener('click', () => this.generateWithAI());
 
-        // Allow Ctrl/Cmd+Enter to submit
-        promptInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                e.preventDefault();
-                this.generateWithAI();
-            }
-        });
+            // Allow Ctrl/Cmd+Enter to submit
+            aiPromptInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                    e.preventDefault();
+                    this.generateWithAI();
+                }
+            });
+        }
     }
 
     switchFile(filename) {
@@ -688,8 +696,8 @@ new Grid({
 
 
     async generateWithAI() {
-        const promptInput = document.getElementById('prompt-input');
-        const generateBtn = document.getElementById('generate-btn');
+        const promptInput = document.getElementById('ai-prompt-input');
+        const generateBtn = document.getElementById('ai-generate-btn');
         const prompt = promptInput.value.trim();
 
         if (!prompt) return;
@@ -697,8 +705,12 @@ new Grid({
         // Save current editor content before generating
         this.fileContents[this.currentFile] = this.editor.getValue();
 
+        // Add user message to chat
+        this.addChatMessage('user', prompt);
+
         generateBtn.disabled = true;
-        generateBtn.innerHTML = 'Generating<span class="loading-spinner"></span>';
+        const originalBtnContent = generateBtn.innerHTML;
+        generateBtn.innerHTML = '<span class="loading-spinner"></span> Generating...';
 
         if (document.getElementById('demo-status-overlay')) {
             this.updateStatus('Generating with AI...', true);
@@ -759,11 +771,6 @@ new Grid({
                 this.programmaticChange = false;
             }, 50);
 
-            // Show debug information
-            if (data.debug) {
-                this.showDebugInfo(data.debug);
-            }
-
             // Render the component with the new AI-generated code
             if (document.getElementById('demo-status-overlay')) {
                 this.updateStatus('Rendering...', true);
@@ -773,17 +780,157 @@ new Grid({
             if (document.getElementById('demo-status-overlay')) {
                 this.updateStatus('Code generated successfully');
             }
+
+            // Add assistant message to chat with files and debug info
+            const filesUpdated = Object.keys(data.files);
+            this.addChatMessage('assistant', 'I\'ve generated the code for you!', {
+                files: filesUpdated,
+                debug: data.debug
+            });
+
             promptInput.value = '';
         } catch (error) {
             console.error('Error generating code:', error);
             if (document.getElementById('demo-status-overlay')) {
                 this.updateStatus('Error generating code', false);
             }
-            alert('Error: ' + error.message);
+
+            // Add error message to chat
+            this.addChatMessage('assistant', `Sorry, there was an error: ${error.message}`, { error: true });
         } finally {
             generateBtn.disabled = false;
-            generateBtn.textContent = 'Generate';
+            generateBtn.innerHTML = originalBtnContent;
         }
+    }
+
+    addChatMessage(role, text, options = {}) {
+        const messagesContainer = document.getElementById('ai-chat-messages');
+        if (!messagesContainer) return;
+
+        // Remove welcome message if it exists
+        const welcomeMsg = messagesContainer.querySelector('.ai-welcome-message');
+        if (welcomeMsg) {
+            welcomeMsg.remove();
+        }
+
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `ai-message ai-message-${role}`;
+
+        const bubbleDiv = document.createElement('div');
+        bubbleDiv.className = 'ai-message-bubble';
+
+        // Message text
+        const textDiv = document.createElement('div');
+        textDiv.className = 'ai-message-text';
+        textDiv.textContent = text;
+        bubbleDiv.appendChild(textDiv);
+
+        // Files updated (for assistant messages)
+        if (role === 'assistant' && options.files && options.files.length > 0) {
+            const filesDiv = document.createElement('div');
+            filesDiv.className = 'ai-message-files';
+            filesDiv.innerHTML = `
+                <div style="font-size: 0.8125rem; font-weight: 600; margin-bottom: 0.5rem;">Files Updated:</div>
+                <div class="ai-message-files-list">
+                    ${options.files.map(file => `<span class="ai-file-badge">📝 ${file}</span>`).join('')}
+                </div>
+            `;
+            bubbleDiv.appendChild(filesDiv);
+        }
+
+        // Debug information (expandable)
+        if (role === 'assistant' && options.debug && !options.error) {
+            const debugDiv = document.createElement('div');
+            debugDiv.className = 'ai-debug-section';
+            const debugId = `debug-${Date.now()}`;
+
+            debugDiv.innerHTML = `
+                <div class="ai-debug-toggle" onclick="window.demoPage?.toggleChatDebug('${debugId}')">
+                    <span>🔍 View Chain of Thought</span>
+                    <span id="${debugId}-toggle">▶</span>
+                </div>
+                <div class="ai-debug-content" id="${debugId}" style="display: none;">
+                    ${this.buildDebugContent(options.debug)}
+                </div>
+            `;
+            bubbleDiv.appendChild(debugDiv);
+        }
+
+        // Timestamp
+        const metaDiv = document.createElement('div');
+        metaDiv.className = 'ai-message-meta';
+        const now = new Date();
+        metaDiv.textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        bubbleDiv.appendChild(metaDiv);
+
+        messageDiv.appendChild(bubbleDiv);
+        messagesContainer.appendChild(messageDiv);
+
+        // Scroll to bottom
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+        // Store in history
+        this.chatHistory.push({ role, text, options, timestamp: now });
+    }
+
+    toggleChatDebug(debugId) {
+        const content = document.getElementById(debugId);
+        const toggle = document.getElementById(`${debugId}-toggle`);
+
+        if (content.style.display === 'none') {
+            content.style.display = 'block';
+            toggle.textContent = '▼';
+        } else {
+            content.style.display = 'none';
+            toggle.textContent = '▶';
+        }
+    }
+
+    buildDebugContent(debug) {
+        if (!debug) return '';
+
+        let html = '';
+
+        // RAG Results
+        if (debug.ragResults && debug.ragResults.length > 0) {
+            html += `
+                <div class="ai-debug-step">
+                    <div class="ai-debug-step-title">1. Documentation Search</div>
+                    <div class="ai-debug-step-content">
+                        Found ${debug.ragResults.length} relevant documentation chunks with scores:
+                        ${debug.ragResults.map(r => r.score).join(', ')}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Model info
+        if (debug.claudeModel) {
+            html += `
+                <div class="ai-debug-step">
+                    <div class="ai-debug-step-title">2. AI Model</div>
+                    <div class="ai-debug-step-content">
+                        Model: ${debug.claudeModel}<br>
+                        Tokens: ${debug.tokensUsed?.input || 0} input + ${debug.tokensUsed?.output || 0} output
+                    </div>
+                </div>
+            `;
+        }
+
+        // Raw response preview
+        if (debug.rawResponse) {
+            const preview = debug.rawResponse.substring(0, 200);
+            html += `
+                <div class="ai-debug-step">
+                    <div class="ai-debug-step-title">3. AI Response Preview</div>
+                    <div class="ai-debug-step-content" style="font-family: monospace; font-size: 0.75rem;">
+                        ${this.escapeHtml(preview)}${debug.rawResponse.length > 200 ? '...' : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        return html;
     }
 
     updateStatus(text, isPending = false) {
