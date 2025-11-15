@@ -29,13 +29,6 @@ export class DemoPage extends Component {
     async render() {
         const content = `
             <div class="fade-in">
-                <div class="demo-header-section">
-                    <h1 style="font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem;">Live Bryntum Component Demo</h1>
-                    <p style="color: var(--text-secondary);">
-                        Interactive code editor with AI assistance - supports Grid, Scheduler, Gantt, Taskboard & more
-                    </p>
-                </div>
-
                 <!-- Status overlay loader -->
                 <div class="demo-status-overlay" id="demo-status-overlay">
                     <div class="demo-status-content">
@@ -305,18 +298,18 @@ export class DemoPage extends Component {
             if (stored !== null) {
                 this.fileContents[filename] = stored;
             } else {
-                // Load from defaults
+                // Load from defaults folder
                 try {
                     const response = await fetch(`/defaults/${filename}`);
                     if (response.ok) {
                         this.fileContents[filename] = await response.text();
                     } else {
-                        // Fallback to hardcoded defaults
-                        this.fileContents[filename] = this.getHardcodedDefault(filename);
+                        console.error(`Failed to load /defaults/${filename}: ${response.status}`);
+                        this.fileContents[filename] = '';
                     }
                 } catch (error) {
-                    console.error(`Failed to load default for ${filename}:`, error);
-                    this.fileContents[filename] = this.getHardcodedDefault(filename);
+                    console.error(`Failed to fetch /defaults/${filename}:`, error);
+                    this.fileContents[filename] = '';
                 }
             }
         }
@@ -360,88 +353,6 @@ export class DemoPage extends Component {
         window.location.reload();
     }
 
-    getHardcodedDefault(filename) {
-        // Fallback defaults if fetch fails
-        switch (filename) {
-            case 'demo.js':
-                return this.getInitialDemoCode();
-            case 'data.json':
-                return this.getInitialDataCode();
-            case 'style.css':
-                return this.getInitialStyleCode();
-            default:
-                return '';
-        }
-    }
-
-    getInitialDemoCode() {
-        return `// Grid configuration
-new Grid({
-    height   : '100%',
-    appendTo : 'preview-container',
-    columns  : [
-        {
-            text   : 'Name',
-            field  : 'name',
-            flex   : 2,
-            editor : {
-                type     : 'textfield',
-                required : true
-            }
-        }, {
-            text  : 'Age',
-            field : 'age',
-            width : 100,
-            type  : 'number'
-        }, {
-            text  : 'City',
-            field : 'city',
-            flex  : 1
-        }, {
-            text  : 'Food',
-            field : 'food',
-            flex  : 1
-        }, {
-            type  : 'color',
-            text  : 'Color',
-            field : 'color',
-            width : 80
-        }
-    ],
-    data : data
-});`;
-    }
-
-    getInitialDataCode() {
-        const gridData = [
-            { id: 1, name: 'Don A Taylor', age: 30, city: 'Moscow', food: 'Salad', color: 'Black' },
-            { id: 2, name: 'John B Adams', age: 65, city: 'Paris', food: 'Bolognese', color: 'Orange' },
-            { id: 3, name: 'John Doe', age: 40, city: 'London', food: 'Fish and Chips', color: 'Blue' },
-            { id: 4, name: 'Maria Garcia', age: 28, city: 'Madrid', food: 'Paella', color: 'Green' },
-            { id: 5, name: 'Li Wei', age: 35, city: 'Beijing', food: 'Dumplings', color: 'Yellow' },
-            { id: 6, name: 'Sara Johnson', age: 32, city: 'Sydney', food: 'Sushi', color: 'Purple' },
-            { id: 7, name: 'Lucas Brown', age: 22, city: 'Toronto', food: 'Poutine', color: 'Orange' },
-            { id: 8, name: 'Emma Wilson', age: 27, city: 'Paris', food: 'Croissant', color: 'Pink' },
-            { id: 9, name: 'Ivan Petrov', age: 45, city: 'St. Petersburg', food: 'Borscht', color: 'Grey' },
-            { id: 10, name: 'Zhang Ming', age: 50, city: 'Shanghai', food: 'Hot Pot', color: 'Purple' }
-        ];
-
-        return JSON.stringify(gridData, null, 4);
-    }
-
-    getInitialStyleCode() {
-        return `/* Custom styles for your component */
-
-/* Example: Change header background */
-.b-grid-header {
-    /* background: linear-gradient(to right, #667eea 0%, #764ba2 100%); */
-}
-
-/* Example: Customize row styling */
-.b-grid-row {
-    /* Add your custom styles here */
-}`;
-    }
 
     async renderComponent() {
         try {
@@ -702,15 +613,26 @@ new Grid({
 
         if (!prompt) return;
 
-        // Save current editor content before generating
-        this.fileContents[this.currentFile] = this.editor.getValue();
+        // Prevent double submission
+        if (generateBtn.disabled) return;
 
-        // Add user message to chat
+        // Save current editor content before generating
+        if (this.editor) {
+            this.fileContents[this.currentFile] = this.editor.getValue();
+        }
+
+        // Clear input and add user message to chat
+        promptInput.value = '';
         this.addChatMessage('user', prompt);
 
         generateBtn.disabled = true;
-        const originalBtnContent = generateBtn.innerHTML;
-        generateBtn.innerHTML = '<span class="loading-spinner"></span> Generating...';
+        generateBtn.innerHTML = `
+            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="animation: spin 1s linear infinite;">
+                <circle cx="12" cy="12" r="10" stroke-width="4" stroke="currentColor" fill="none" opacity="0.25"></circle>
+                <path d="M12 2a10 10 0 0 1 10 10" stroke-width="4" stroke="currentColor" fill="none"></path>
+            </svg>
+            Generating...
+        `;
 
         if (document.getElementById('demo-status-overlay')) {
             this.updateStatus('Generating with AI...', true);
@@ -787,8 +709,6 @@ new Grid({
                 files: filesUpdated,
                 debug: data.debug
             });
-
-            promptInput.value = '';
         } catch (error) {
             console.error('Error generating code:', error);
             if (document.getElementById('demo-status-overlay')) {
@@ -799,7 +719,12 @@ new Grid({
             this.addChatMessage('assistant', `Sorry, there was an error: ${error.message}`, { error: true });
         } finally {
             generateBtn.disabled = false;
-            generateBtn.innerHTML = originalBtnContent;
+            generateBtn.innerHTML = `
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                </svg>
+                Send
+            `;
         }
     }
 

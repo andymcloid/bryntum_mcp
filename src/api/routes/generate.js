@@ -5,19 +5,40 @@
  */
 import Anthropic from '@anthropic-ai/sdk';
 import { createLogger } from '../../utils/logger.js';
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 const logger = createLogger({ component: 'GenerateRoutes' });
+
+// Get __dirname equivalent in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Initialize Anthropic client
 const anthropic = new Anthropic({
   apiKey: process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY,
 });
 
+// Load prompt template once at startup
+let promptTemplate = null;
+async function loadPromptTemplate() {
+  if (!promptTemplate) {
+    const templatePath = path.join(__dirname, '../../../web/defaults/prompt_template.md');
+    promptTemplate = await fs.readFile(templatePath, 'utf-8');
+    logger.info('Loaded prompt template from defaults');
+  }
+  return promptTemplate;
+}
+
 /**
  * Register code generation routes
  */
 export default async function generateRoutes(fastify, options) {
   const { queryService } = fastify;
+
+  // Load template at startup
+  await loadPromptTemplate();
 
   /**
    * POST /api/generate-grid
@@ -54,81 +75,12 @@ export default async function generateRoutes(fastify, options) {
         })
         .join('\n---\n\n');
 
-      // Step 2: Create base prompt for code generation
+      // Step 2: Build context for template placeholders
       const componentsText = components.length > 0
         ? `We have loaded the following Bryntum components and they are all available for your use: ${components.join(', ')}.`
         : 'All standard Bryntum components (Grid, Scheduler, SchedulerPro, Gantt, TaskBoard) are pre-loaded and available for your use.';
 
-      const basePrompt = `You are an expert on Bryntum components (Grid, Scheduler, Gantt, TaskBoard, etc.). Your task is to generate code based on the user's requirements.
-
-## AVAILABLE COMPONENTS:
-${componentsText}
-
-## FILE STRUCTURE:
-The project has 3 files:
-1. **demo.js** - Component instantiation code (e.g., new Grid({...}))
-2. **data.json** - JSON data array (becomes available as 'data' variable in demo.js)
-3. **style.css** - Custom CSS styles (optional)
-
-## CRITICAL: RESPONSE FORMAT - YOU MUST FOLLOW THIS EXACTLY:
-
-You MUST respond with tagged sections for ONLY the files you want to change.
-Do NOT return files that don't need changes - only return what you modified.
-
-AVAILABLE FILES TO MODIFY:
-- [demo.js]...[/demo.js] - Component code
-- [data.json]...[/data.json] - JSON data
-- [style.css]...[/style.css] - Custom CSS
-
-EXAMPLE - If only changing data:
-[data.json]
-[
-  { "id": 1, "name": "Example", ... },
-  { "id": 2, "name": "Example 2", ... }
-]
-[/data.json]
-
-EXAMPLE - If changing both demo and data:
-[demo.js]
-new Grid({
-  appendTo : 'preview-container',
-  height   : '100%',
-  columns  : [...],
-  data     : data
-});
-[/demo.js]
-
-[data.json]
-[
-  { "id": 1, "name": "Example", ... }
-]
-[/data.json]
-
-EXAMPLE - If only adding CSS:
-[style.css]
-.b-grid-header {
-  background: #f0f0f0;
-}
-[/style.css]
-
-## RULES:
-1. ONLY return tags for files you are modifying
-2. Do NOT use markdown code blocks (\`\`\`javascript, \`\`\`json, etc.)
-3. In demo.js, reference 'data' variable (it comes from data.json)
-4. In data.json, provide valid JSON array (at least 12 rows unless specified)
-5. Use appendTo: 'preview-container' for all components
-6. Code must run directly without modifications
-
-## DOCUMENTATION FROM RAG (relevant to your task):
-
-${docsContext}
-
----`;
-
-      // Step 3: Build messages for Claude
-      const currentFilesContext = `CURRENT FILES:
-
-[demo.js]
+      const currentFilesContext = `[demo.js]
 ${demoJs}
 [/demo.js]
 
@@ -140,19 +92,18 @@ ${dataJson}
 ${styleCSS}
 [/style.css]`;
 
+      // Step 3: Load template and replace placeholders
+      const template = await loadPromptTemplate();
+      const finalPrompt = template
+        .replace('${AVAILABLE_COMPONENTS}', componentsText)
+        .replace('${RAG_DOCS_CONTENT}', docsContext)
+        .replace('${CURRENT_FILES_CONTENT}', currentFilesContext)
+        .replace('${USER_INPUT}', prompt);
+
       const messages = [
         {
           role: 'user',
-          content: `${basePrompt}
-
-${currentFilesContext}
-
-USER'S REQUEST: ${prompt}
-
-Based on the documentation above and the user's request, return ONLY the files you need to modify using the tagged format.
-If you only need to change CSS, return only [style.css]...[/style.css].
-If you only need to change data, return only [data.json]...[/data.json].
-Return multiple files only if multiple files need changes.`,
+          content: finalPrompt,
         },
       ];
 

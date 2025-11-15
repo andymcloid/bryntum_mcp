@@ -1,13 +1,8 @@
 // Bryntum Imports Configuration
 // List all CSS and JS files to load.
 // All exports from JS modules will be auto-detected and exposed globally.
-// 
-
 
 const IMPORTS = [
-
-
-    
     { css: 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/fontawesome.min.css' },
     { css: 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/solid.min.css' },
 
