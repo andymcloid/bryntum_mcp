@@ -72,9 +72,9 @@ export class DemoPage extends Component {
 
                     <div class="demo-tab-content" id="code-tab">
                         <div class="file-tabs" style="display: flex; gap: 0.5rem; padding: 0.75rem 1rem; background: var(--surface); border-bottom: 1px solid var(--border);">
-                            <button class="file-tab active" data-file="demo.js">📄 demo.js</button>
-                            <button class="file-tab" data-file="data.json">📊 data.json</button>
-                            <button class="file-tab" data-file="style.css">🎨 style.css</button>
+                            <button class="file-tab active" data-file="demo.js"><i class="fa-solid fa-code"></i> demo.js</button>
+                            <button class="file-tab" data-file="data.json"><i class="fa-solid fa-database"></i> data.json</button>
+                            <button class="file-tab" data-file="style.css"><i class="fa-solid fa-paintbrush"></i> style.css</button>
                         </div>
                         <div id="code-editor" class="code-editor"></div>
                     </div>
@@ -757,7 +757,7 @@ export class DemoPage extends Component {
             filesDiv.innerHTML = `
                 <div style="font-size: 0.8125rem; font-weight: 600; margin-bottom: 0.5rem;">Files Updated:</div>
                 <div class="ai-message-files-list">
-                    ${options.files.map(file => `<span class="ai-file-badge">📝 ${file}</span>`).join('')}
+                    ${options.files.map(file => `<span class="ai-file-badge"><i class="fa-solid fa-file-pen"></i> ${file}</span>`).join('')}
                 </div>
             `;
             bubbleDiv.appendChild(filesDiv);
@@ -771,8 +771,8 @@ export class DemoPage extends Component {
 
             debugDiv.innerHTML = `
                 <div class="ai-debug-toggle" onclick="window.demoPage?.toggleChatDebug('${debugId}')">
-                    <span>🔍 View Chain of Thought</span>
-                    <span id="${debugId}-toggle">▶</span>
+                    <span><i class="fa-solid fa-magnifying-glass"></i> View Chain of Thought</span>
+                    <span id="${debugId}-toggle"><i class="fa-solid fa-chevron-right"></i></span>
                 </div>
                 <div class="ai-debug-content" id="${debugId}" style="display: none;">
                     ${this.buildDebugContent(options.debug)}
@@ -804,10 +804,10 @@ export class DemoPage extends Component {
 
         if (content.style.display === 'none') {
             content.style.display = 'block';
-            toggle.textContent = '▼';
+            toggle.innerHTML = '<i class="fa-solid fa-chevron-down"></i>';
         } else {
             content.style.display = 'none';
-            toggle.textContent = '▶';
+            toggle.innerHTML = '<i class="fa-solid fa-chevron-right"></i>';
         }
     }
 
@@ -894,10 +894,10 @@ export class DemoPage extends Component {
 
         if (this.debugExpanded) {
             content.style.display = 'block';
-            toggle.textContent = '▼';
+            toggle.innerHTML = '<i class="fa-solid fa-chevron-down"></i>';
         } else {
             content.style.display = 'none';
-            toggle.textContent = '▶';
+            toggle.innerHTML = '<i class="fa-solid fa-chevron-right"></i>';
         }
     }
 
