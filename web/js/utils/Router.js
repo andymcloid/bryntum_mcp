@@ -48,6 +48,11 @@ export class Router {
             link.classList.toggle('active', link.getAttribute('href') === path);
         });
 
+        // Clean up previous route
+        if (this.currentRoute && typeof this.currentRoute.unmount === 'function') {
+            this.currentRoute.unmount();
+        }
+
         // Get page class for current route
         const PageClass = this.routes.get(path) || this.routes.get('/404');
 

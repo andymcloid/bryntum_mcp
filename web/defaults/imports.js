@@ -5,12 +5,13 @@
 
 
 const IMPORTS = [
+    { css: 'https://bryntum.com/products/grid/build/thin/core.stockholm.thin.css' },
     { css: 'https://bryntum.com/products/grid/build/thin/grid.stockholm.thin.css' },
     { css: 'https://bryntum.com/products/grid/build/thin/gantt.stockholm.thin.css' },
     { css: 'https://bryntum.com/products/grid/build/thin/scheduler.stockholm.thin.css' },
     { css: 'https://bryntum.com/products/grid/build/thin/schedulerpro.stockholm.thin.css' },
     { css: 'https://bryntum.com/products/grid/build/thin/taskboard.stockholm.thin.css' },
-
+    { js: 'https://bryntum.com/products/grid/build/thin/core.module.thin.js' },
     { js: 'https://bryntum.com/products/grid/build/thin/grid.module.thin.js' },
     { js: 'https://bryntum.com/products/grid/build/thin/gantt.module.thin.js' },
     { js: 'https://bryntum.com/products/grid/build/thin/scheduler.module.thin.js' },

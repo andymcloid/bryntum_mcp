@@ -427,7 +427,8 @@
 }
 
 .demo-tab-content.active {
-    display: block;
+    display: flex;
+    flex-direction: column;
 }
 
 /* File Tabs */
@@ -437,6 +438,7 @@
     padding: 0.75rem 1rem;
     background: var(--surface);
     border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
 }
 
 .file-tab {
@@ -470,22 +472,14 @@
 }
 
 .code-editor {
-    height: 100%;
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
 }
 
-.CodeMirror {
+/* Monaco Editor container - ensure it fills the space */
+.code-editor .monaco-editor {
     height: 100% !important;
-    font-size: 0.875rem;
-    background: white !important;
-}
-
-.CodeMirror-gutters {
-    background: var(--surface) !important;
-    border-right: 1px solid var(--border) !important;
-}
-
-.CodeMirror-linenumber {
-    color: var(--text-secondary) !important;
 }
 
 .demo-prompt-container {

@@ -12,7 +12,6 @@ export class DemoPage extends Component {
         this.editors = {
             'data.json': null,
             'style.css': null,
-            'imports.js': null,
             'demo.js': null
         };
         this.currentFile = 'demo.js';
@@ -23,6 +22,7 @@ export class DemoPage extends Component {
         this.bryntumLoaded = false; // Prevent multiple loads
         this.filesLoaded = false; // Track if all files are loaded
         this.programmaticChange = false; // Flag for programmatic changes
+        this.importsConfig = null; // Store imports.js config (loaded from disk only)
     }
 
     async render() {
@@ -75,7 +75,6 @@ export class DemoPage extends Component {
                             <button class="file-tab active" data-file="demo.js">📄 demo.js</button>
                             <button class="file-tab" data-file="data.json">📊 data.json</button>
                             <button class="file-tab" data-file="style.css">🎨 style.css</button>
-                            <button class="file-tab" data-file="imports.js">🔒 imports.js</button>
                         </div>
                         <div id="code-editor" class="code-editor"></div>
                     </div>
@@ -125,10 +124,10 @@ export class DemoPage extends Component {
         // Wait for DOM to be ready
         await new Promise(resolve => setTimeout(resolve, 100));
 
-        // Load CodeMirror dynamically
-        await this.loadCodeMirror();
+        // Load Monaco Editor dynamically
+        await this.loadMonaco();
 
-        // Initialize CodeMirror (async - loads files)
+        // Initialize Monaco Editor (async - loads files)
         await this.initializeEditor();
 
         // Set up event listeners
@@ -144,26 +143,60 @@ export class DemoPage extends Component {
             this.currentComponent.destroy();
         }
         if (this.editor) {
-            this.editor.toTextArea();
+            this.editor.dispose();
         }
         this.clearRefreshTimeout();
     }
 
-    async loadCodeMirror() {
-        // Load CodeMirror CSS
-        const cssLink = document.createElement('link');
-        cssLink.rel = 'stylesheet';
-        cssLink.href = 'https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css';
-        document.head.appendChild(cssLink);
+    async loadMonaco() {
+        // Check if Monaco is already loaded (global flag)
+        if (window._monacoLoaded) {
+            return;
+        }
 
-        // Load CodeMirror JS and modes
-        await this.loadScript('https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js');
-        await this.loadScript('https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/javascript/javascript.min.js');
-        await this.loadScript('https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/css/css.min.js');
+        // Check if Monaco is already available
+        if (window.monaco) {
+            window._monacoLoaded = true;
+            return;
+        }
+
+        // Load Monaco Editor loader only if not already loaded
+        if (!window.require) {
+            await this.loadScript('https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.0/min/vs/loader.min.js');
+
+            // Wait a bit for require to be available
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+
+        // Configure Monaco (only once)
+        return new Promise((resolve, reject) => {
+            if (typeof require === 'undefined') {
+                reject(new Error('AMD loader (require) not available'));
+                return;
+            }
+
+            require.config({
+                paths: {
+                    'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.0/min/vs'
+                }
+            });
+
+            require(['vs/editor/editor.main'], () => {
+                window._monacoLoaded = true;
+                resolve();
+            }, reject);
+        });
     }
 
     loadScript(src) {
         return new Promise((resolve, reject) => {
+            // Check if script is already loaded
+            const existingScript = document.querySelector(`script[src="${src}"]`);
+            if (existingScript) {
+                resolve();
+                return;
+            }
+
             const script = document.createElement('script');
             script.src = src;
             script.onload = resolve;
@@ -175,29 +208,48 @@ export class DemoPage extends Component {
     async initializeEditor() {
         const container = document.getElementById('code-editor');
 
+        if (!container) {
+            console.error('Code editor container not found');
+            return;
+        }
+
+        // Dispose any existing editor first
+        if (this.editor) {
+            this.editor.dispose();
+            this.editor = null;
+        }
+
+        // Clear the container completely and create a fresh wrapper div
+        container.innerHTML = '';
+        const editorWrapper = document.createElement('div');
+        editorWrapper.style.width = '100%';
+        editorWrapper.style.height = '100%';
+        container.appendChild(editorWrapper);
+
         // Load file contents from localStorage or defaults
         await this.loadFileContents();
 
-        const modes = {
+        const languages = {
             'demo.js': 'javascript',
-            'data.json': 'javascript',
-            'style.css': 'css',
-            'imports.js': 'javascript'
+            'data.json': 'json',
+            'style.css': 'css'
         };
 
         // Create single editor that we'll swap content for
         // Set programmaticChange flag during initialization
         this.programmaticChange = true;
 
-        this.editor = CodeMirror(container, {
+        this.editor = monaco.editor.create(editorWrapper, {
             value: this.fileContents['demo.js'],
-            mode: modes['demo.js'],
-            theme: 'default',
-            lineNumbers: true,
-            lineWrapping: true,
-            indentUnit: 4,
+            language: languages['demo.js'],
+            theme: 'vs',
+            automaticLayout: true,
+            minimap: { enabled: false },
+            fontSize: 14,
+            lineNumbers: 'on',
+            wordWrap: 'on',
             tabSize: 4,
-            indentWithTabs: false,
+            insertSpaces: true,
             readOnly: false
         });
 
@@ -207,7 +259,7 @@ export class DemoPage extends Component {
         }, 50);
 
         // Handle code changes
-        this.editor.on('change', () => {
+        this.editor.onDidChangeModelContent(() => {
             // Ignore programmatic changes (like switching tabs)
             if (this.programmaticChange) {
                 return;
@@ -237,7 +289,7 @@ export class DemoPage extends Component {
     }
 
     async loadFileContents() {
-        const files = ['demo.js', 'data.json', 'style.css', 'imports.js'];
+        const files = ['demo.js', 'data.json', 'style.css'];
         this.fileContents = {};
 
         for (const filename of files) {
@@ -263,9 +315,18 @@ export class DemoPage extends Component {
             }
         }
 
+        // Load imports.js from disk only (not in editor)
+        try {
+            const response = await fetch('/defaults/imports.js');
+            if (response.ok) {
+                this.importsConfig = await response.text();
+            }
+        } catch (error) {
+            console.error('Failed to load imports.js:', error);
+        }
+
         // Mark files as loaded
         this.filesLoaded = true;
-        console.log('All files loaded successfully');
     }
 
     saveFileContents() {
@@ -302,8 +363,6 @@ export class DemoPage extends Component {
                 return this.getInitialDataCode();
             case 'style.css':
                 return this.getInitialStyleCode();
-            case 'imports.js':
-                return this.getImportsCode();
             default:
                 return '';
         }
@@ -378,33 +437,10 @@ new Grid({
 }`;
     }
 
-    getImportsCode() {
-        return `// Bryntum Imports Configuration
-// List all CSS and JS files to load.
-// All exports from JS modules will be auto-detected and exposed globally.
-//
-// NOTE: After modifying this file, you must:
-// 1. Click "Reset" button in the demo page, OR
-// 2. Refresh the browser (F5)
-// (ES6 modules cannot be unloaded at runtime)
-
-const IMPORTS = [
-    { css: 'https://bryntum.com/products/grid/build/grid.stockholm.css' },
-    { js: 'https://bryntum.com/products/grid/build/grid.module.js' }
-
-    // Example: Load multiple CSS first, then JS
-    // { css: 'https://bryntum.com/products/grid/build/grid.stockholm.css' },
-    // { css: 'https://bryntum.com/products/scheduler/build/scheduler.stockholm.css' },
-    // { css: 'https://bryntum.com/products/gantt/build/gantt.stockholm.css' },
-    // { js: 'https://bryntum.com/products/gantt/build/gantt.module.js' }
-];`;
-    }
-
     async renderComponent() {
         try {
             // Don't render until all files are loaded
             if (!this.filesLoaded) {
-                console.log('Files not yet loaded, skipping render');
                 return;
             }
 
@@ -488,12 +524,15 @@ const IMPORTS = [
     async loadBryntum() {
         // Prevent multiple loads
         if (this.bryntumLoaded) {
-            console.log('Bryntum already loaded, skipping...');
             return;
         }
 
         // Parse imports.js to get imports configuration
-        const importsJs = this.fileContents['imports.js'];
+        const importsJs = this.importsConfig;
+
+        if (!importsJs) {
+            throw new Error('imports.js not loaded from disk');
+        }
 
         // Extract IMPORTS array from imports.js
         let imports;
@@ -514,9 +553,6 @@ const IMPORTS = [
         const cssImports = imports.filter(item => item.css).map(item => item.css);
         const jsImports = imports.filter(item => item.js).map(item => item.js);
 
-        console.log('Loading CSS files:', cssImports);
-        console.log('Loading JS modules:', jsImports);
-
         // Load all CSS files (in order)
         cssImports.forEach(cssUrl => {
             const cssLink = document.createElement('link');
@@ -533,10 +569,7 @@ const IMPORTS = [
         // Auto-detect and expose ALL exports from each module
         const allExports = [];
         modules.forEach((module, index) => {
-            const moduleUrl = jsImports[index];
             const exportNames = Object.keys(module);
-
-            console.log(`📦 Module ${moduleUrl} exports:`, exportNames);
 
             exportNames.forEach(exportName => {
                 // Expose each export globally
@@ -548,8 +581,6 @@ const IMPORTS = [
         // Store loaded component names for later use
         this.loadedComponents = allExports;
         this.bryntumLoaded = true;
-
-        console.log('✅ Auto-detected and loaded Bryntum exports:', allExports.join(', '));
     }
 
     setupEventListeners() {
@@ -572,9 +603,9 @@ const IMPORTS = [
                 });
                 document.getElementById(`${targetTab}-tab`).classList.add('active');
 
-                // Refresh CodeMirror when switching to code tab
+                // Layout Monaco Editor when switching to code tab
                 if (targetTab === 'code' && this.editor) {
-                    setTimeout(() => this.editor.refresh(), 100);
+                    setTimeout(() => this.editor.layout(), 100);
                 }
             });
         });
@@ -614,7 +645,6 @@ const IMPORTS = [
     switchFile(filename) {
         // Don't switch until files are loaded
         if (!this.filesLoaded) {
-            console.log('Files not yet loaded, skipping file switch');
             return;
         }
 
@@ -627,25 +657,30 @@ const IMPORTS = [
         // Switch to new file
         this.currentFile = filename;
 
-        // Update editor content and mode
-        const modes = {
+        // Update editor content and language
+        const languages = {
             'demo.js': 'javascript',
-            'data.json': 'javascript',
-            'style.css': 'css',
-            'imports.js': 'javascript'
+            'data.json': 'json',
+            'style.css': 'css'
         };
-
-        // Set read-only for imports.js
-        const isReadOnly = filename === 'imports.js';
 
         // Mark as programmatic change to prevent re-render
         this.programmaticChange = true;
 
-        this.editor.setOption('mode', modes[filename]);
-        this.editor.setOption('readOnly', isReadOnly);
-        this.editor.setValue(this.fileContents[filename] || '');
+        // Dispose old model before creating new one to prevent memory leaks
+        const oldModel = this.editor.getModel();
+        if (oldModel) {
+            oldModel.dispose();
+        }
 
-        // Reset flag after a brief delay (CodeMirror processes events async)
+        // Create new model with the new language and content
+        const model = monaco.editor.createModel(
+            this.fileContents[filename] || '',
+            languages[filename]
+        );
+        this.editor.setModel(model);
+
+        // Reset flag after a brief delay (Monaco processes events async)
         setTimeout(() => {
             this.programmaticChange = false;
         }, 50);
@@ -680,9 +715,9 @@ const IMPORTS = [
                     files: {
                         'demo.js': this.fileContents['demo.js'],
                         'data.json': this.fileContents['data.json'],
-                        'style.css': this.fileContents['style.css'],
-                        'imports.js': this.fileContents['imports.js']
-                    }
+                        'style.css': this.fileContents['style.css']
+                    },
+                    availableComponents: this.loadedComponents // Send list of loaded exports
                 })
             });
 
@@ -708,14 +743,18 @@ const IMPORTS = [
             if (data.files['style.css']) this.fileContents['style.css'] = data.files['style.css'];
             // Note: imports.js is not updated (read-only)
 
-            console.log('Updated files:', Object.keys(data.files).join(', '));
-
             // Save updated files to localStorage
             this.saveFileContents();
 
             // Update current editor view (mark as programmatic to prevent immediate re-render)
             this.programmaticChange = true;
-            this.editor.setValue(this.fileContents[this.currentFile]);
+
+            // Update the current model's value
+            const currentModel = this.editor.getModel();
+            if (currentModel) {
+                currentModel.setValue(this.fileContents[this.currentFile]);
+            }
+
             setTimeout(() => {
                 this.programmaticChange = false;
             }, 50);
@@ -724,6 +763,12 @@ const IMPORTS = [
             if (data.debug) {
                 this.showDebugInfo(data.debug);
             }
+
+            // Render the component with the new AI-generated code
+            if (document.getElementById('demo-status-overlay')) {
+                this.updateStatus('Rendering...', true);
+            }
+            await this.renderComponent();
 
             if (document.getElementById('demo-status-overlay')) {
                 this.updateStatus('Code generated successfully');

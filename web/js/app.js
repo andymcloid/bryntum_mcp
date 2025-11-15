@@ -21,6 +21,3 @@ router.addRoute('/admin', AdminPage);
 
 // Handle initial route
 router.handleRoute();
-
-// Log initialization
-console.log('Bryntum RAG Application initialized');

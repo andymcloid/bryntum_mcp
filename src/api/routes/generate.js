@@ -25,7 +25,7 @@ export default async function generateRoutes(fastify, options) {
    */
   fastify.post('/generate-grid', async (request, reply) => {
     try {
-      const { prompt, files } = request.body;
+      const { prompt, files, availableComponents } = request.body;
 
       if (!prompt) {
         return reply.code(400).send({ error: 'Prompt is required' });
@@ -38,9 +38,9 @@ export default async function generateRoutes(fastify, options) {
       const demoJs = files['demo.js'] || '';
       const dataJson = files['data.json'] || '[]';
       const styleCSS = files['style.css'] || '';
-      const importsJs = files['imports.js'] || '';
+      const components = Array.isArray(availableComponents) ? availableComponents : [];
 
-      logger.info({ prompt: prompt.substring(0, 100) }, 'Generating component code with MCP search');
+      logger.info({ prompt: prompt.substring(0, 100), components }, 'Generating component code with MCP search');
 
       // Step 1: Search for relevant documentation using MCP (no product filter - all components)
       const searchResults = await queryService.search(prompt, {
@@ -55,19 +55,20 @@ export default async function generateRoutes(fastify, options) {
         .join('\n---\n\n');
 
       // Step 2: Create base prompt for code generation
+      const componentsText = components.length > 0
+        ? `We have loaded the following Bryntum components and they are all available for your use: ${components.join(', ')}.`
+        : 'All standard Bryntum components (Grid, Scheduler, SchedulerPro, Gantt, TaskBoard) are pre-loaded and available for your use.';
+
       const basePrompt = `You are an expert on Bryntum components (Grid, Scheduler, Gantt, TaskBoard, etc.). Your task is to generate code based on the user's requirements.
 
 ## AVAILABLE COMPONENTS:
-All Bryntum components are pre-loaded and available:
-- Grid, Scheduler, SchedulerPro, Gantt, TaskBoard
-${importsJs}
+${componentsText}
 
 ## FILE STRUCTURE:
-The project has 4 files:
+The project has 3 files:
 1. **demo.js** - Component instantiation code (e.g., new Grid({...}))
 2. **data.json** - JSON data array (becomes available as 'data' variable in demo.js)
 3. **style.css** - Custom CSS styles (optional)
-4. **imports.js** - READ-ONLY, shows available components (do not modify)
 
 ## CRITICAL: RESPONSE FORMAT - YOU MUST FOLLOW THIS EXACTLY:
 
