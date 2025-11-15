@@ -27,13 +27,16 @@ body {
     line-height: 1.5;
     color: var(--text-primary);
     background-color: var(--background);
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
 }
 
 .header {
     background-color: var(--primary);
     border-bottom: 1px solid var(--primary-hover);
-    position: sticky;
-    top: 0;
+    flex-shrink: 0;
     z-index: 100;
 }
 
@@ -86,19 +89,23 @@ body {
 }
 
 .main-content {
+    flex: 1;
+    overflow-y: auto;
     max-width: 1200px;
     margin: 0 auto;
     padding: 2rem;
-    min-height: calc(100vh - 200px);
+    width: 100%;
 }
 
 
 .footer {
     background-color: var(--surface);
     border-top: 1px solid var(--border);
-    padding: 2rem;
+    padding: 1rem;
     text-align: center;
     color: var(--text-secondary);
+    font-size: 0.875rem;
+    flex-shrink: 0;
 }
 
 /* Utility Classes */
